@@ -5,14 +5,13 @@
 #include <termios.h>
 #include <sys/ioctl.h>
 
-#define BUFFER_SIZE 100
-#define DEBUG
+#define BUFFER_SIZE 10
 
 typedef char* mbchar;
 
 /* divided by \n, single link */
 struct line {
-    int count;
+    int byte_count;
     char string[BUFFER_SIZE];
     struct line *next;
 };
@@ -26,7 +25,7 @@ struct text {
 
 struct context {
 	char *filename;
-	struct text *filestr;
+	struct text *text;
 };
 
 /* panel size */
@@ -45,7 +44,7 @@ struct context_header {
 /* prototype declaration */
 void clear(void);
 struct line *line_insert(struct line *current);
-void line_set_string(struct line *head, char *string);
+void line_add_char(struct line *head, mbchar mc);
 struct text *text_insert(struct text *current);
 struct text *text_malloc(void);
 mbchar mbchar_malloc(void);
@@ -57,6 +56,7 @@ struct text *file_read(char *filename);
 void context_read_file(struct context *context, char *filename);
 void render_header(struct context_header context);
 void render(struct context context);
+void debug_print_text(struct context context);
 struct view_size console_size(void);
 void backcolor_white(int bool);
 
@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
 	} else {
         struct context context;
         context_read_file(&context, argv[1]);
-        // render(context);
+        render(context);
         exit(EXIT_SUCCESS);
     }
 }
@@ -81,29 +81,28 @@ struct line *line_insert(struct line *current) {
 	struct line* new_line = (struct line *)malloc(sizeof(struct line));
     new_line->next = current->next;
     current->next = new_line;
-    new_line->count = 0;
+    new_line->byte_count = 0;
     return new_line;
 }
 
 /*
- * line_set_string
+ * line_add_char
  * set string to head
- * return　new_line
  */
-void line_set_string(struct line *head, char *string) {
-    int read = 0;
+void line_add_char(struct line *head, mbchar mc) {
     struct line *current = head;
-    while (string[read]) {
-        current->string[current->count] = string[read];
-        read++;
-        current->count++;
-        if (current->count == BUFFER_SIZE - 1) {
-            if (current->next) {
-                current = current->next;
-            } else {
-                current = line_insert(current);
-            }
-        }
+    // rest is none
+    while (current->byte_count >= BUFFER_SIZE - mbchar_size(mc)) {
+        if (current->next)
+			current = current->next;
+		else
+            current = line_insert(current);
+    }
+    int offset = 0;
+    while (offset < mbchar_size(mc)) {
+        current->string[current->byte_count + offset] = mc[offset];
+        current->byte_count++;
+        offset++;
     }
 }
 
@@ -125,7 +124,8 @@ struct text *text_insert(struct text *current) {
     }
     new_text->prev = current;
     new_text->line = (struct line *)malloc(sizeof(struct line));
-    new_text->line->count = 0;
+    new_text->line->next = NULL;
+    new_text->line->byte_count = 0;
     return new_text;
 }
 
@@ -139,7 +139,8 @@ struct text *text_malloc(void) {
     head->prev = NULL;
     head->next = NULL;
     head->line = (struct line *)malloc(sizeof(struct line));
-    head->line->count = 0;
+    head->line->next = NULL;
+    head->line->byte_count = 0;
     return head;
 }
 
@@ -181,10 +182,10 @@ int mbchar_size(mbchar mbchar) {
 
 /*
  * is_LineBreak
- * return 1 if char is \n and len is 1
+ * return 1 if char is \n
  */
 int isLineBreak(mbchar mbchar) {
-    if (mbchar[0] == '\n' && mbchar_size(mbchar) == 1)
+    if (mbchar[0] == '\n')
         return 1;
     return 0;
 }
@@ -235,14 +236,14 @@ struct text *file_read(char *filename) {
             break;
         buf[len] = c;
         if (mbchar_size(buf) > 0) {
-            line_set_string(current_line, buf);
+            line_add_char(current_line, buf);
             if (isLineBreak(buf)) {
-                text_insert(current_text);
+                current_text = text_insert(current_text);
                 current_line = current_text->line;
             }
             mbcher_zero_clear(buf);
             len = 0;
-        } else if (mbchar_size(buf) < 0) {
+        } else if (mbchar_size(buf) <= 0) {
             // not valid
             len++;
         }
@@ -259,7 +260,7 @@ struct text *file_read(char *filename) {
 void context_read_file(struct context *context, char *filename) {
     context->filename = (char *)malloc(sizeof(filename));
     strcpy(context->filename, filename);
-    context->filestr = file_read(context->filename);
+    context->text = file_read(context->filename);
 }
 
 /*
@@ -281,7 +282,6 @@ void render_header(struct context_header context) {
  * output contents of context
  */
 void render(struct context context) {
-    /* 
     struct view_size view_size = console_size();
     struct context_header context_header;
     context_header.message = context.filename;
@@ -289,18 +289,33 @@ void render(struct context context) {
     
     clear();
     render_header(context_header);
-    struct string *current = context.filestr;
-	while (current) {
-        printf("%s", current->str);
-        current = current->next;
-    }
-	printf("\n");
-    */
+    debug_print_text(context);
 }
 
-#ifdef DEBUG
-
-#endif
+void debug_print_text(struct context context) {
+    struct text *current_text = context.text;
+	struct line *current_line = context.text->line;
+    
+    int i;
+    while (current_text) {
+        current_line = current_text->line;
+        while (current_line) {
+            i = 0;
+            printf("[%d]",current_line->byte_count);
+            while (i < current_line->byte_count) {
+                printf("%c", current_line->string[i]);
+                i++;
+            }
+            current_line = current_line->next;
+            if (current_line)
+                printf(" -> ");
+        }
+        current_text = current_text->next;
+        if (current_text)
+            printf("-------\n");
+    }
+    printf("\n");
+}
 
 /*
  * clear terminal
