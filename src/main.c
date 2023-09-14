@@ -22,6 +22,7 @@ void clear(void);
 struct string *insert(struct string *current);
 struct string *file_read(char *filename);
 void context_set_filename(struct context *context, char *filename);
+void render(struct context context);
 
 int main(int argc, char *argv[]) {
 	struct string* head = (struct string *)malloc(sizeof(struct string));
@@ -33,6 +34,7 @@ int main(int argc, char *argv[]) {
 	} else {
         struct context context;
         context_set_filename(&context, argv[1]);
+        render(context);
         exit(EXIT_SUCCESS);
     }
 }
@@ -91,6 +93,19 @@ void context_set_filename(struct context *context, char *filename) {
     context->filename = (char *)malloc(sizeof(filename));
     strcpy(context->filename, filename);
     context->filestr = file_read(context->filename);
+}
+
+/*
+ * 引数contextの中身を出力する関数
+ */
+void render(struct context context) {
+    clear();
+    struct string *current = context.filestr;
+	while (current) {
+        printf("%s", current->str);
+        current = current->next;
+    }
+	printf("\n");
 }
 
 /*
