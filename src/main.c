@@ -31,6 +31,7 @@ struct string *file_read(char *filename);
 void context_set_filename(struct context *context, char *filename);
 void render(struct context context);
 struct view_size console_size(void);
+void backcolor_white(int bool);
 
 int main(int argc, char *argv[]) {
 	struct string* head = (struct string *)malloc(sizeof(struct string));
@@ -144,4 +145,17 @@ void clear(void) {
     // 2J: 画面全体消去
     // H = 1;1H: カーソルを1行目1列目
     printf("\e[2J\e[H");
+}
+
+/*
+ * if bool is 1, change background color white
+ */
+void backcolor_white(int bool) {
+    if (bool)
+        // white
+        printf("\e[7m");
+    else {
+        // reset all color
+        printf("\e[m");
+    }
 }
