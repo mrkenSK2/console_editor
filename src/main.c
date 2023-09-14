@@ -35,7 +35,7 @@ struct context_header {
 void clear(void);
 struct string *insert(struct string *current);
 struct string *file_read(char *filename);
-void context_set_filename(struct context *context, char *filename);
+void context_read_file(struct context *context, char *filename);
 void render_header(struct context_header context);
 void render(struct context context);
 struct view_size console_size(void);
@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
 	} else {
         struct context context;
-        context_set_filename(&context, argv[1]);
+        context_read_file(&context, argv[1]);
         render(context);
         exit(EXIT_SUCCESS);
     }
@@ -123,10 +123,10 @@ struct string *file_read(char *filename) {
 }
 
 /*
- * context_set_filename
+ * context_read_file
  * store contents of filename to the members of struct context
  */
-void context_set_filename(struct context *context, char *filename) {
+void context_read_file(struct context *context, char *filename) {
     context->filename = (char *)malloc(sizeof(filename));
     strcpy(context->filename, filename);
     context->filestr = file_read(context->filename);
