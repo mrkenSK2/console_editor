@@ -18,13 +18,13 @@ struct context {
 	struct string *filestr;
 };
 
-/* 画面のサイズ*/
+/* panel size */
 struct view_size {
     int width;
     int height;
 };
 
-/* プロトタイプ宣言 */
+/* prototype declaration */
 void clear(void);
 struct string *insert(struct string *current);
 struct string *file_read(char *filename);
@@ -50,8 +50,8 @@ int main(int argc, char *argv[]) {
 
 /*
  * insert
- * new_strをmallocしてcurrentの次に挿入
- * 返り値　new_str
+ * malloc new_str and insert next to current
+ * return　new_str
  */
 struct string *insert(struct string *current) {
 	struct string* new_str = (struct string *)malloc(sizeof(struct string));
@@ -70,7 +70,7 @@ struct string *insert(struct string *current) {
 
 /*
  * console_size
- * 画面のサイズを返す
+ * return console size
  */
 struct view_size console_size(void) {
     struct view_size view_size;
@@ -90,7 +90,7 @@ struct view_size console_size(void) {
 
 /*
  * file_read
- * ファイルをstruct stringに読み込む
+ * read filename to struct string
  */
 struct string *file_read(char *filename) {
 	FILE* fp;
@@ -116,8 +116,7 @@ struct string *file_read(char *filename) {
 
 /*
  * context_set_filename
- * 引数struct contextのメンバーにfilenameの中身を格納
- * 
+ * store contents of filename to the members of struct context
  */
 void context_set_filename(struct context *context, char *filename) {
     context->filename = (char *)malloc(sizeof(filename));
@@ -126,7 +125,7 @@ void context_set_filename(struct context *context, char *filename) {
 }
 
 /*
- * 引数contextの中身を出力
+ * output contents of context
  */
 void render(struct context context) {
     clear();
@@ -139,7 +138,7 @@ void render(struct context context) {
 }
 
 /*
- * ターミナルをクリア
+ * clear terminal
  */
 void clear(void) {
     // 2J: 画面全体消去
