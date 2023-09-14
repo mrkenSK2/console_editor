@@ -12,19 +12,27 @@ struct string {
 	struct string *next;
 };
 
+struct context {
+	char *filename;
+	struct string *filestr;
+};
+
 /* プロトタイプ宣言 */
 void clear(void);
 struct string *insert(struct string *current);
 struct string *file_read(char *filename);
+void context_set_filename(struct context *context, char *filename);
 
 int main(int argc, char *argv[]) {
-	struct string* head = (struct string*)malloc(sizeof(struct string));
+	struct string* head = (struct string *)malloc(sizeof(struct string));
 	head->prev = NULL;
 	head->next = NULL;
 	if (argc != 2) {
         fprintf(stderr, "illegal args\n");
         exit(EXIT_FAILURE);
 	} else {
+        struct context context;
+        context_set_filename(&context, argv[1]);
         exit(EXIT_SUCCESS);
     }
 }
@@ -34,7 +42,7 @@ int main(int argc, char *argv[]) {
  * 返り値　new_str
  */
 struct string *insert(struct string *current) {
-	struct string* new_str = (struct string*)malloc(sizeof(struct string));
+	struct string* new_str = (struct string *)malloc(sizeof(struct string));
 	if (current->next) {
 		current->next->prev = new_str;
 		new_str->next = current->next;
@@ -60,7 +68,7 @@ struct string *file_read(char *filename) {
 		fprintf(stderr, "file open error\n");
 		exit(1);
 	}
-    struct string *head = (struct string*)malloc(sizeof(struct string));
+    struct string *head = (struct string *)malloc(sizeof(struct string));
     head->prev = NULL;
     head->next = NULL;
 
@@ -72,6 +80,17 @@ struct string *file_read(char *filename) {
 	}
 	fclose(fp);
     return head;
+}
+
+/*
+ * context_set_filename
+ * 引数struct contextのメンバーにfilenameの中身を格納
+ * 
+ */
+void context_set_filename(struct context *context, char *filename) {
+    context->filename = (char *)malloc(sizeof(filename));
+    strcpy(context->filename, filename);
+    context->filestr = file_read(context->filename);
 }
 
 /*
