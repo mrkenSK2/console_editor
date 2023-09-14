@@ -8,6 +8,8 @@
 #define BUFFER_SIZE 100
 #define DEBUG
 
+typedef char* mbchar;
+
 /* divided by \n, single link */
 struct line {
     int count;
@@ -46,6 +48,11 @@ struct line *line_insert(struct line *current);
 void line_set_string(struct line *head, char *string);
 struct text *text_insert(struct text *current);
 struct text *text_malloc(void);
+mbchar mbchar_malloc(void);
+void mbchar_free(mbchar mbchar);
+mbchar mbcher_zero_clear(mbchar mbchar);
+int mbchar_size(mbchar mbchar);
+int isLineBreak(mbchar mbchar);
 struct text *file_read(char *filename);
 void context_read_file(struct context *context, char *filename);
 void render_header(struct context_header context);
@@ -134,6 +141,52 @@ struct text *text_malloc(void) {
     head->line = (struct line *)malloc(sizeof(struct line));
     head->line->count = 0;
     return head;
+}
+
+/*
+ * mbchar_malloc
+ * malloc size of multi byte
+ * return memory
+ */
+mbchar mbchar_malloc(void) {
+    return (mbchar)malloc(sizeof(char) * MB_CUR_MAX);
+}
+
+/*
+ * mbchar_free
+ * free multi byte
+ */
+void mbchar_free(mbchar mbchar) {
+    return free(mbchar);
+}
+
+/*
+ * mbchar_zero_clear
+ * fill mbchar with \0
+ */
+mbchar mbcher_zero_clear(mbchar mbchar) {
+    int i = MB_CUR_MAX;
+    while(i--)
+        mbchar[i] = '\0';
+    return mbchar;
+}
+
+/*
+ * mbchar_size
+ * return size of multi byte char
+ */
+int mbchar_size(mbchar mbchar) {
+    return mblen(mbchar, MB_CUR_MAX);
+}
+
+/*
+ * is_LineBreak
+ * return 1 if char is \n and len is 1
+ */
+int isLineBreak(mbchar mbchar) {
+    if (mbchar[0] == '\n' && mbchar_size(mbchar) == 1)
+        return 1;
+    return 0;
 }
 
 /*
