@@ -221,34 +221,35 @@ struct text *file_read(char *filename) {
 		exit(EXIT_FAILURE);
 	}
 
-    /*
     struct text *head = text_malloc();
     struct text *current_text = head;
     struct line *current_line = head->line;
 
-	char *buf = mbchar_malloc();
+	mbchar buf = mbchar_malloc();
     char c;
     mbcher_zero_clear(buf);
     int len = 0;
     while(1) {
         c = (char)fgetc(fp);
-        if (feof(fp))	break;
+        if (feof(fp))
+            break;
         buf[len] = c;
-        if(mbchar_size(buf) > 0) {
+        if (mbchar_size(buf) > 0) {
             line_set_string(current_line, buf);
-            if(isLineBreak(buf)) {
+            if (isLineBreak(buf)) {
                 text_insert(current_text);
                 current_line = current_text->line;
             }
             mbcher_zero_clear(buf);
             len = 0;
         } else if (mbchar_size(buf) < 0) {
+            // not valid
             len++;
         }
     }
+    mbchar_free(buf);
     fclose(fp);
-    */
-    return NULL;
+    return head;
 }
 
 /*
