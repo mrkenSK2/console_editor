@@ -6,16 +6,25 @@
 #include <sys/ioctl.h>
 
 #define BUFFER_SIZE 100
+#define DEBUG
 
-struct string {
-	char str[BUFFER_SIZE];
-	struct string *prev;
-	struct string *next;
+/* divided by \n, single link */
+struct line {
+    int count;
+    char string[BUFFER_SIZE];
+    struct line *next;
+};
+
+/* list of line, double link */
+struct text {
+	struct line *line;
+    struct text *prev;
+    struct text *next;
 };
 
 struct context {
 	char *filename;
-	struct string *filestr;
+	struct text *filestr;
 };
 
 /* panel size */
@@ -33,8 +42,11 @@ struct context_header {
 
 /* prototype declaration */
 void clear(void);
-struct string *insert(struct string *current);
-struct string *file_read(char *filename);
+struct line *line_insert(struct line *current);
+void line_set_string(struct line *head, char *string);
+struct text *text_insert(struct text *current);
+struct text *text_malloc(void);
+struct text *file_read(char *filename);
 void context_read_file(struct context *context, char *filename);
 void render_header(struct context_header context);
 void render(struct context context);
@@ -42,38 +54,86 @@ struct view_size console_size(void);
 void backcolor_white(int bool);
 
 int main(int argc, char *argv[]) {
-	struct string* head = (struct string *)malloc(sizeof(struct string));
-	head->prev = NULL;
-	head->next = NULL;
 	if (argc != 2) {
         fprintf(stderr, "illegal args\n");
         exit(EXIT_FAILURE);
 	} else {
         struct context context;
         context_read_file(&context, argv[1]);
-        render(context);
+        // render(context);
         exit(EXIT_SUCCESS);
     }
 }
 
 /*
- * insert
- * malloc new_str and insert next to current
- * return　new_str
+ * line_insert
+ * malloc new_line and insert next to current
+ * return　new_line
  */
-struct string *insert(struct string *current) {
-	struct string* new_str = (struct string *)malloc(sizeof(struct string));
-	if (current->next) {
-		current->next->prev = new_str;
-		new_str->next = current->next;
-	} else {
-		new_str->next = NULL;
-	}
-	if (current) {
-		current->next = new_str;
-	}
-	new_str->prev = current;
-	return new_str;
+struct line *line_insert(struct line *current) {
+	struct line* new_line = (struct line *)malloc(sizeof(struct line));
+    new_line->next = current->next;
+    current->next = new_line;
+    new_line->count = 0;
+    return new_line;
+}
+
+/*
+ * line_set_string
+ * set string to head
+ * return　new_line
+ */
+void line_set_string(struct line *head, char *string) {
+    int read = 0;
+    struct line *current = head;
+    while (string[read]) {
+        current->string[current->count] = string[read];
+        read++;
+        current->count++;
+        if (current->count == BUFFER_SIZE - 1) {
+            if (current->next) {
+                current = current->next;
+            } else {
+                current = line_insert(current);
+            }
+        }
+    }
+}
+
+/*
+ * text_insert
+ * malloc new_text and insert next to current
+ * return　new_text
+ */
+struct text *text_insert(struct text *current) {
+    struct text *new_text = (struct text *)malloc(sizeof(struct text));
+    if (current->next) {
+        current->next->prev = new_text;
+        new_text->next = current->next;
+    } else {
+        new_text->next = NULL;
+    }
+    if (current) {
+        current->next = new_text;
+    }
+    new_text->prev = current;
+    new_text->line = (struct line *)malloc(sizeof(struct line));
+    new_text->line->count = 0;
+    return new_text;
+}
+
+/*
+ * text_malloc
+ * malloc head
+ * return head
+ */
+struct text *text_malloc(void) {
+    struct text *head = (struct text *)malloc(sizeof(struct text));
+    head->prev = NULL;
+    head->next = NULL;
+    head->line = (struct line *)malloc(sizeof(struct line));
+    head->line->count = 0;
+    return head;
 }
 
 /*
@@ -100,26 +160,42 @@ struct view_size console_size(void) {
  * file_read
  * read filename to struct string
  */
-struct string *file_read(char *filename) {
+struct text *file_read(char *filename) {
 	FILE* fp;
-	char buf[BUFFER_SIZE];
 	
 	if ((fp = fopen(filename, "r")) == NULL) {
 		fprintf(stderr, "file open error\n");
 		exit(EXIT_FAILURE);
 	}
-    struct string *head = (struct string *)malloc(sizeof(struct string));
-    head->prev = NULL;
-    head->next = NULL;
 
-	struct string *current = head;
-	while (fgets(buf, sizeof(buf), fp) != NULL) {
-		strcpy(current->str, buf);
-		insert(current);
-		current = current->next;
-	}
-	fclose(fp);
-    return head;
+    /*
+    struct text *head = text_malloc();
+    struct text *current_text = head;
+    struct line *current_line = head->line;
+
+	char *buf = mbchar_malloc();
+    char c;
+    mbcher_zero_clear(buf);
+    int len = 0;
+    while(1) {
+        c = (char)fgetc(fp);
+        if (feof(fp))	break;
+        buf[len] = c;
+        if(mbchar_size(buf) > 0) {
+            line_set_string(current_line, buf);
+            if(isLineBreak(buf)) {
+                text_insert(current_text);
+                current_line = current_text->line;
+            }
+            mbcher_zero_clear(buf);
+            len = 0;
+        } else if (mbchar_size(buf) < 0) {
+            len++;
+        }
+    }
+    fclose(fp);
+    */
+    return NULL;
 }
 
 /*
@@ -151,6 +227,7 @@ void render_header(struct context_header context) {
  * output contents of context
  */
 void render(struct context context) {
+    /* 
     struct view_size view_size = console_size();
     struct context_header context_header;
     context_header.message = context.filename;
@@ -164,7 +241,12 @@ void render(struct context context) {
         current = current->next;
     }
 	printf("\n");
+    */
 }
+
+#ifdef DEBUG
+
+#endif
 
 /*
  * clear terminal
