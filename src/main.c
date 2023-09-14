@@ -14,84 +14,45 @@ struct string {
 
 /* プロトタイプ宣言 */
 void clear(void);
-struct string *insert(struct string *from);
-void file_read(char* filename, struct string* head);
-struct termios cookedMode, rawMode; 
+struct string *insert(struct string *current);
+struct string *file_read(char *filename);
 
 int main(int argc, char *argv[]) {
-	struct termios non_canon, term_org;
-
 	struct string* head = (struct string*)malloc(sizeof(struct string));
 	head->prev = NULL;
 	head->next = NULL;
 	if (argc != 2) {
-		printf("usage: ./main filename\n");
+        fprintf(stderr, "illegal args\n");
+        exit(EXIT_FAILURE);
 	} else {
-		int line_num = 1;
-		file_read(argv[1], head);
-		struct string* current = head;
-
-        int input_key;
-		// 元の設定を保存
-		if (tcgetattr(STDIN_FILENO, &term_org) != 0)
-		    perror("tcgetatt() error");
-		
-	    cfmakeraw(&non_canon);
-		tcsetattr(STDIN_FILENO, TCSANOW, &non_canon);
-		while(current) {
-			clear();
-			printf("%s", current->str);
-			printf("\n\rline%d\n", line_num);
-			if (!current->next)
-				printf("\n\r(END)");
-
-			input_key = getchar();
-			if (input_key == 'n') {
-				if (current->next) {
-					current = current->next;
-					line_num++;
-				}
-			}
-			if (input_key == 'p') {
-				if (current->prev) {
-					current = current->prev;
-					line_num--;
-				}
-			}
-			if (input_key == 'e') {
-				clear();
-				break;
-			}
-        }
-	    tcsetattr(STDIN_FILENO, TCSANOW, &term_org);
+        exit(EXIT_SUCCESS);
     }
-	return 0;
 }
 
 /*
- * toをmallocしてfromの次に挿入
- * 返り値　to
+ * new_strをmallocしてcurrentの次に挿入
+ * 返り値　new_str
  */
-struct string *insert(struct string *from) {
-	struct string* to = (struct string*)malloc(sizeof(struct string));
-	if (from->next) {
-		from->next->prev = to;
-		to->next = from->next;
+struct string *insert(struct string *current) {
+	struct string* new_str = (struct string*)malloc(sizeof(struct string));
+	if (current->next) {
+		current->next->prev = new_str;
+		new_str->next = current->next;
 	} else {
-		to->next = NULL;
+		new_str->next = NULL;
 	}
-	if (from) {
-		from->next = to;
+	if (current) {
+		current->next = new_str;
 	}
-	to->prev = from;
-	return to;
+	new_str->prev = current;
+	return new_str;
 }
 
 /*
  * file_read
  * ファイルをstruct stringに読み込む関数
  */
-void file_read(char* filename, struct string* head){
+struct string *file_read(char *filename) {
 	FILE* fp;
 	char buf[BUFFER_SIZE];
 	
@@ -99,13 +60,18 @@ void file_read(char* filename, struct string* head){
 		fprintf(stderr, "file open error\n");
 		exit(1);
 	}
-	struct string* current = head;
+    struct string *head = (struct string*)malloc(sizeof(struct string));
+    head->prev = NULL;
+    head->next = NULL;
+
+	struct string *current = head;
 	while (fgets(buf, sizeof(buf), fp) != NULL) {
 		strcpy(current->str, buf);
 		insert(current);
 		current = current->next;
 	}
 	fclose(fp);
+    return head;
 }
 
 /*
