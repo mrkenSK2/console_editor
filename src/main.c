@@ -3,6 +3,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <termios.h>
+#include <sys/ioctl.h>
 
 #define BUFFER_SIZE 100
 
@@ -17,12 +18,19 @@ struct context {
 	struct string *filestr;
 };
 
+/* 画面のサイズ*/
+struct view_size {
+    int width;
+    int height;
+};
+
 /* プロトタイプ宣言 */
 void clear(void);
 struct string *insert(struct string *current);
 struct string *file_read(char *filename);
 void context_set_filename(struct context *context, char *filename);
 void render(struct context context);
+struct view_size console_size(void);
 
 int main(int argc, char *argv[]) {
 	struct string* head = (struct string *)malloc(sizeof(struct string));
@@ -40,6 +48,7 @@ int main(int argc, char *argv[]) {
 }
 
 /*
+ * insert
  * new_strをmallocしてcurrentの次に挿入
  * 返り値　new_str
  */
@@ -59,8 +68,28 @@ struct string *insert(struct string *current) {
 }
 
 /*
+ * console_size
+ * 画面のサイズを返す
+ */
+struct view_size console_size(void) {
+    struct view_size view_size;
+    view_size.width = 0;
+    view_size.height = 0;
+    
+    struct winsize ws;
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1) {
+        fprintf(stderr, "ioctl error\n");
+        exit(EXIT_FAILURE);
+    } else {
+        view_size.width = ws.ws_col;
+        view_size.height = ws.ws_row;
+    }
+    return view_size;
+}
+
+/*
  * file_read
- * ファイルをstruct stringに読み込む関数
+ * ファイルをstruct stringに読み込む
  */
 struct string *file_read(char *filename) {
 	FILE* fp;
@@ -68,7 +97,7 @@ struct string *file_read(char *filename) {
 	
 	if ((fp = fopen(filename, "r")) == NULL) {
 		fprintf(stderr, "file open error\n");
-		exit(1);
+		exit(EXIT_FAILURE);
 	}
     struct string *head = (struct string *)malloc(sizeof(struct string));
     head->prev = NULL;
@@ -96,7 +125,7 @@ void context_set_filename(struct context *context, char *filename) {
 }
 
 /*
- * 引数contextの中身を出力する関数
+ * 引数contextの中身を出力
  */
 void render(struct context context) {
     clear();
@@ -109,7 +138,7 @@ void render(struct context context) {
 }
 
 /*
- * ターミナルをクリアする関数
+ * ターミナルをクリア
  */
 void clear(void) {
     // 2J: 画面全体消去
