@@ -24,11 +24,19 @@ struct view_size {
     int height;
 };
 
+/* header, white color part*/
+struct context_header {
+    struct view_size view_size;
+    // maybe filename
+    char *message;
+};
+
 /* prototype declaration */
 void clear(void);
 struct string *insert(struct string *current);
 struct string *file_read(char *filename);
 void context_set_filename(struct context *context, char *filename);
+void render_header(struct context_header context);
 void render(struct context context);
 struct view_size console_size(void);
 void backcolor_white(int bool);
@@ -125,10 +133,31 @@ void context_set_filename(struct context *context, char *filename) {
 }
 
 /*
+ * render_header
+ * output header with white background, width is windowsize
+ */
+void render_header(struct context_header context) {
+    // space_num of space are addeed to the tail of message
+    int space_num = context.view_size.width - strlen(context.message);
+    backcolor_white(1);
+    printf("%s",context.message);
+    while(space_num-- > 0)
+		printf(" ");
+    backcolor_white(0);
+    printf("\n");
+}
+
+/*
  * output contents of context
  */
 void render(struct context context) {
+    struct view_size view_size = console_size();
+    struct context_header context_header;
+    context_header.message = context.filename;
+    context_header.view_size = view_size;
+    
     clear();
+    render_header(context_header);
     struct string *current = context.filestr;
 	while (current) {
         printf("%s", current->str);
