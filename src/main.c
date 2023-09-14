@@ -4,11 +4,7 @@
 #include <unistd.h>
 #include <termios.h>
 
-#define BUFFER_SIZE 100 
-
-void clear(void);
-
-struct termios cookedMode, rawMode; 
+#define BUFFER_SIZE 100
 
 struct string {
 	char str[BUFFER_SIZE];
@@ -16,42 +12,12 @@ struct string {
 	struct string *next;
 };
 
-/*
- * toをmallocしてfromの次に挿入
- * 返り値　to
- */
-struct string *insert(struct string *from) {
-	struct string* to = (struct string*)malloc(sizeof(struct string));
-	if (from->next) {
-		from->next->prev = to;
-		to->next = from->next;
-	} else {
-		to->next = NULL;
-	}
-	if (from) {
-		from->next = to;
-	}
-	to->prev = from;
-	return to;
-}
+/* プロトタイプ宣言 */
+void clear(void);
+struct string *insert(struct string *from);
+void file_read(char* filename, struct string* head);
+struct termios cookedMode, rawMode; 
 
-void file_read(char* filename, struct string* head){
-	FILE* fp;
-	char buf[BUFFER_SIZE];
-	
-	if ((fp = fopen(filename, "r")) == NULL) {
-		fprintf(stderr, "file open error\n");
-		exit(1);
-	}
-	struct string* current = head;
-	while (fgets(buf, sizeof(buf), fp) != NULL) {
-		strcpy(current->str, buf);
-		insert(current);
-		current = current->next;
-	}
-	fclose(fp);
-}
-		
 int main(int argc, char *argv[]) {
 	struct termios non_canon, term_org;
 
@@ -100,6 +66,46 @@ int main(int argc, char *argv[]) {
 	    tcsetattr(STDIN_FILENO, TCSANOW, &term_org);
     }
 	return 0;
+}
+
+/*
+ * toをmallocしてfromの次に挿入
+ * 返り値　to
+ */
+struct string *insert(struct string *from) {
+	struct string* to = (struct string*)malloc(sizeof(struct string));
+	if (from->next) {
+		from->next->prev = to;
+		to->next = from->next;
+	} else {
+		to->next = NULL;
+	}
+	if (from) {
+		from->next = to;
+	}
+	to->prev = from;
+	return to;
+}
+
+/*
+ * file_read
+ * ファイルをstruct stringに読み込む関数
+ */
+void file_read(char* filename, struct string* head){
+	FILE* fp;
+	char buf[BUFFER_SIZE];
+	
+	if ((fp = fopen(filename, "r")) == NULL) {
+		fprintf(stderr, "file open error\n");
+		exit(1);
+	}
+	struct string* current = head;
+	while (fgets(buf, sizeof(buf), fp) != NULL) {
+		strcpy(current->str, buf);
+		insert(current);
+		current = current->next;
+	}
+	fclose(fp);
 }
 
 /*
