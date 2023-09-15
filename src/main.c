@@ -78,10 +78,12 @@ unum string_width(unsigned char *message) ;
 struct text *file_read(const char *filename);
 void context_read_file(struct context *context, char *filename);
 unsigned char get_single_byte_key(void);
+void color_cursor(int bool);
 mbchar keyboard_scan(mbchar *out);
 struct command command_parse(mbchar key);
 void render_header(struct context_header context);
 void render(struct context context);
+void render_body(struct context context);
 unsigned int print_one_mbchar(unsigned char *str);
 void trim_print(unsigned char *message, unsigned int max_width);
 void debug_print_text(struct context context);
@@ -95,12 +97,15 @@ int main(int argc, char *argv[]) {
 	} else {
         struct context context;
         context_read_file(&context, argv[1]);
-        context.cursor.position_x = 0;
-        context.cursor.position_y = 0;
+        context.cursor.position_x = 1;
+        context.cursor.position_y = 1;
         mbchar key = mbchar_malloc();
         while (1) {
-            printf("%s", key);
+            render(context);
             keyboard_scan(&key);
+            struct command cmd = command_parse(key);
+            if (cmd.command_key == EXIT)
+                break;
             // render(context);
         }
         mbchar_free(key);
@@ -445,7 +450,19 @@ unsigned char get_single_byte_key(void) {
 }
 
 /*
- * key_board_scan
+ * color_cursor
+ * if bool, change cursor pink
+ */
+void color_cursor(int bool) {
+    if (bool)
+        // pink
+        printf("\e[30m\e[45m");
+    else
+        printf("\e[m");
+}
+
+/*
+ * keyboard_scan
  * store scan to arg out
  */
 mbchar keyboard_scan(mbchar *out) {
@@ -505,7 +522,44 @@ void render(struct context context) {
     clear();
     calculatotion_height(context.text, view_size.width);
     render_header(context_header);
-    debug_print_text(context);
+    render_body(context);
+}
+
+/*
+ * render_body
+ * output with color cursor
+ */
+void render_body(struct context context) {
+    struct text *current_text = context.text;
+    struct line *current_line = context.text->line;
+    
+    unum pos_x = 1;
+    unum pos_y = 1;
+    unum wrote_byte;
+    int cursor_color_flag = 0;
+    while (current_text) {
+        current_line = current_text->line;
+        while (current_line) {
+            wrote_byte = 0;
+            while (wrote_byte < current_line->byte_count) {
+                if (cursor_color_flag) {
+                    color_cursor(0);
+                    cursor_color_flag = 0;
+                }
+                if (context.cursor.position_x == pos_x && context.cursor.position_y == pos_y) {
+                    color_cursor(1);
+                    cursor_color_flag = 1;
+                }
+                wrote_byte += print_one_mbchar(&(current_line->string[wrote_byte]));
+                pos_x++;
+            }
+            current_line = current_line->next;
+        }
+        current_text = current_text->next;
+        pos_y++;
+        pos_x = 1;
+    }
+    printf("\n");
 }
 
 /*
