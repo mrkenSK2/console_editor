@@ -29,9 +29,15 @@ struct text {
     struct text *next;
 };
 
+struct cursor {
+    unum position_x;
+    unum position_y;
+};
+
 struct context {
 	char *filename;
 	struct text *text;
+    struct cursor cursor;
 };
 
 /* panel size */
@@ -79,6 +85,8 @@ int main(int argc, char *argv[]) {
 	} else {
         struct context context;
         context_read_file(&context, argv[1]);
+        context.cursor.position_x = 0;
+        context.cursor.position_y = 0;
         render(context);
         exit(EXIT_SUCCESS);
     }
