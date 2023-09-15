@@ -66,6 +66,7 @@ struct line *line_insert(struct line *current);
 void line_add_char(struct line *head, mbchar mc);
 struct text *text_insert(struct text *current);
 struct text *text_malloc(void);
+struct line *getLineHeadFromPositionY(struct text *head, unum position_y);
 void calculatotion_height(struct text *head, unsigned int max_width);
 mbchar mbchar_malloc(void);
 void mbchar_free(mbchar mbchar);
@@ -183,6 +184,20 @@ struct text *text_malloc(void) {
     head->line->next = NULL;
     head->line->byte_count = 0;
     return head;
+}
+
+/*
+ * getLineHeadFromPositionY
+ * get pos_y of head line
+ */
+struct line *getLineHeadFromPositionY(struct text *head, unum position_y) {
+    unum i = position_y - 1;
+    struct text *current_text = head;
+    while (i-- > 0 && current_text)
+        current_text = current_text->next;
+	if (current_text)
+        return current_text->line;
+	return NULL;
 }
 
 /*
@@ -529,6 +544,8 @@ void command_perform(struct command command, struct context *context) {
         exit(EXIT_SUCCESS);
         break;
     case INSERT:
+        context->filename = (char*)(command.command_value);
+        context->filename = (char*)(getLineHeadFromPositionY(context->text, context->cursor.position_y)->string);
         break;
     case NONE:
         break;
