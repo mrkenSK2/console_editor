@@ -55,7 +55,7 @@ mbchar mbchar_malloc(void);
 void mbchar_free(mbchar mbchar);
 mbchar mbcher_zero_clear(mbchar mbchar);
 int mbchar_size(mbchar mbchar, int len);
-int safe_mbchar_size(mbchar mbchar);
+int safed_mbchar_size(mbchar mbchar);
 int isLineBreak(mbchar mbchar);
 struct text *file_read(char *filename);
 void context_read_file(struct context *context, char *filename);
@@ -97,14 +97,14 @@ struct line *line_insert(struct line *current) {
 void line_add_char(struct line *head, mbchar mc) {
     struct line *current = head;
     // rest is none
-    while (current->byte_count >= BUFFER_SIZE - safe_mbchar_size(mc)) {
+    while (current->byte_count >= BUFFER_SIZE - safed_mbchar_size(mc)) {
         if (current->next)
 			current = current->next;
 		else
             current = line_insert(current);
     }
     int offset = 0;
-    while (offset < safe_mbchar_size(mc)) {
+    while (offset < safed_mbchar_size(mc)) {
         current->string[current->byte_count] = mc[offset];
         current->byte_count++;
         offset++;
@@ -231,11 +231,11 @@ int mbchar_size(mbchar mbchar, int len) {
 }
 
 /*
- * safe_mbchar_size
+ * safed_mbchar_size
  * uses only head_one_bits
  * return size of multi byte char
  */
-int safe_mbchar_size(mbchar mbchar) {
+int safed_mbchar_size(mbchar mbchar) {
     int head_one_bits = 0;
     while (head_one_bits < 8) {
         if ((mbchar[0] >> (7 - head_one_bits) & 0x01) == 1)
