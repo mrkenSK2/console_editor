@@ -63,6 +63,8 @@ struct text *file_read(char *filename);
 void context_read_file(struct context *context, char *filename);
 void render_header(struct context_header context);
 void render(struct context context);
+int print_one_mbchar(char *str);
+void trim_print(char *message, int max_width);
 void debug_print_text(struct context context);
 struct view_size console_size(void);
 void backcolor_white(int bool);
@@ -369,12 +371,10 @@ void context_read_file(struct context *context, char *filename) {
  * output header with white background, width is windowsize
  */
 void render_header(struct context_header context) {
-    // space_num of space are addeed to the tail of message
-    int space_num = context.view_size.width - strlen(context.message);
     backcolor_white(1);
-    printf("%s",context.message);
-    while(space_num-- > 0)
-		printf(" ");
+    printf(" ");
+	trim_print(context.message, context.view_size.width - 2);
+	printf(" ");
     backcolor_white(0);
     printf("\n");
 }
@@ -391,6 +391,40 @@ void render(struct context context) {
     clear();
     render_header(context_header);
     debug_print_text(context);
+}
+
+/*
+ * print_one_mbchar
+ * output one mbchar
+ */
+int print_one_mbchar(char *str) {
+    int bytes = safed_mbchar_size(str);
+    for (int i = 0; i < bytes; i++) {
+        printf("%c", str[i]);
+    }
+    return bytes;
+}
+
+/*
+ * trim_print
+ * add space to tail
+ */
+void trim_print(char *message, int max_width) {
+    int messsage_width = string_width(message);
+    if (messsage_width <= max_width) {
+        printf("%s",message);
+        int i = max_width - messsage_width;
+        while(i-- > 0)
+            printf(" ");
+    } else {
+        int wrote_bytes = 0;
+        int wrote_width = 0;
+        while (max_width - wrote_width - mbchar_width(&message[wrote_bytes]) > 2) {
+            wrote_width += mbchar_width(&message[wrote_bytes]);
+            wrote_bytes += print_one_mbchar(&message[wrote_bytes]);
+        }
+        printf("...");
+    }
 }
 
 void debug_print_text(struct context context) {
