@@ -162,6 +162,11 @@ struct text *text_malloc(void) {
  * total_width is per line
  */
 void calculatotion_height(struct text *head, unsigned int max_width) {
+    static unsigned int prev_width = 0;
+    if (prev_width == max_width)
+        // cache
+        return;
+    prev_width = max_width;
 	struct text *current_text = head;
 	struct line *current_line = head->line;
     
