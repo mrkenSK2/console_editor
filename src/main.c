@@ -81,6 +81,7 @@ unsigned char get_single_byte_key(void);
 void color_cursor(int bool);
 mbchar keyboard_scan(mbchar *out);
 struct command command_parse(mbchar key);
+void command_perform(struct command command, struct context *context);
 void render_header(struct context_header context);
 void render(struct context context);
 void render_body(struct context context);
@@ -104,8 +105,7 @@ int main(int argc, char *argv[]) {
             render(context);
             keyboard_scan(&key);
             struct command cmd = command_parse(key);
-            if (cmd.command_key == EXIT)
-                break;
+            command_perform(cmd, &context);
             // render(context);
         }
         mbchar_free(key);
@@ -478,10 +478,19 @@ mbchar keyboard_scan(mbchar *out) {
     return *out;
 }
 
+/*
+ * command_parse
+ * return kind of arg key
+ */
 struct command command_parse(mbchar key) {
     struct command cmd;
     cmd.command_key = NONE;
     cmd.command_value = key;
+
+    char up[3]    = {0x1B,0x5B,0x41};
+    char down[3]  = {0x1B,0x5B,0x42};
+    char right[3] = {0x1B,0x5B,0x43};
+    char left[3]  = {0x1B,0x5B,0x44};
     
     if (!strcmp((const char*)key, "u"))
         cmd.command_key = UP;
@@ -495,6 +504,32 @@ struct command command_parse(mbchar key) {
         cmd.command_key = EXIT;
         
     return cmd;
+}
+
+/*
+ * command_perform
+ * change pos of arg context
+ */
+void command_perform(struct command command, struct context *context) {
+    switch (command.command_key) {
+    case UP:
+        context->cursor.position_y -= 1;
+        break;
+    case DOWN:
+        context->cursor.position_y += 1;
+        break;
+    case RIGHT:
+        context->cursor.position_x -= 1;
+        break;
+    case LEFT:
+        context->cursor.position_x += 1;
+        break;
+    case EXIT:
+        exit(EXIT_SUCCESS);
+        break;
+    case NONE:
+        break;
+    }
 }
 
 /*
