@@ -12,17 +12,18 @@
 #define MBCHAR_ILLIEGAL -2
 
 typedef unsigned char* mbchar;
+typedef unsigned long long unum;
 
 /* divided by \n, single link */
 struct line {
-    int byte_count;
+    unum byte_count;
     unsigned char string[BUFFER_SIZE];
     struct line *next;
 };
 
 /* list of line, double link */
 struct text {
-    int height;
+    unum height;
 	struct line *line;
     struct text *prev;
     struct text *next;
@@ -35,8 +36,8 @@ struct context {
 
 /* panel size */
 struct view_size {
-    int width;
-    int height;
+    unsigned int width;
+    unsigned int height;
 };
 
 /* header, white color part*/
@@ -52,21 +53,21 @@ struct line *line_insert(struct line *current);
 void line_add_char(struct line *head, mbchar mc);
 struct text *text_insert(struct text *current);
 struct text *text_malloc(void);
-void calculatotion_height(struct text *head, int max_width);
+void calculatotion_height(struct text *head, unsigned int max_width);
 mbchar mbchar_malloc(void);
 void mbchar_free(mbchar mbchar);
 mbchar mbcher_zero_clear(mbchar mbchar);
-int mbchar_size(mbchar mbchar, int len);
-int safed_mbchar_size(mbchar mbchar);
+int mbchar_size(mbchar mbchar, unsigned int len);
+unsigned int safed_mbchar_size(mbchar mbchar);
 int isLineBreak(mbchar mbchar);
-int mbchar_width(mbchar mbchar) ;
-int string_width(unsigned char *message) ;
+unsigned int mbchar_width(mbchar mbchar) ;
+unum string_width(unsigned char *message) ;
 struct text *file_read(const char *filename);
 void context_read_file(struct context *context, char *filename);
 void render_header(struct context_header context);
 void render(struct context context);
-int print_one_mbchar(unsigned char *str);
-void trim_print(unsigned char *message, int max_width);
+unsigned int print_one_mbchar(unsigned char *str);
+void trim_print(unsigned char *message, unsigned int max_width);
 void debug_print_text(struct context context);
 struct view_size console_size(void);
 void backcolor_white(int bool);
@@ -109,7 +110,7 @@ void line_add_char(struct line *head, mbchar mc) {
 		else
             current = line_insert(current);
     }
-    int offset = 0;
+    unsigned int offset = 0;
     while (offset < safed_mbchar_size(mc)) {
         current->string[current->byte_count] = mc[offset];
         current->byte_count++;
@@ -160,13 +161,13 @@ struct text *text_malloc(void) {
  * calc view height
  * total_width is per line
  */
-void calculatotion_height(struct text *head, int max_width) {
+void calculatotion_height(struct text *head, unsigned int max_width) {
 	struct text *current_text = head;
 	struct line *current_line = head->line;
     
-    int i;
+    unsigned int i;
     while (current_text) {
-        int total_width = 0;
+        unum total_width = 0;
         current_line = current_text->line;
         while (current_line) {
             i = 0;
@@ -204,7 +205,7 @@ void mbchar_free(mbchar mbchar) {
  * fill mbchar with \0
  */
 mbchar mbcher_zero_clear(mbchar mbchar) {
-    int i = UTF8_MAX_BYTE;
+    unsigned int i = UTF8_MAX_BYTE;
     while(i--)
         mbchar[i] = '\0';
     return mbchar;
@@ -214,13 +215,13 @@ mbchar mbcher_zero_clear(mbchar mbchar) {
  * mbchar_size
  * return size of multi byte char
  */
-int mbchar_size(mbchar mbchar, int len) {
+int mbchar_size(mbchar mbchar, unsigned int len) {
     if (len < 1 || UTF8_MAX_BYTE < len)
         return MBCHAR_ILLIEGAL;
     if (len == 1 && mbchar[0] == 0x00)
         return MBCHAR_NULL;
     // length of mbchar is determined by number of head 1 in byte
-    int head_one_bits = 0;
+    unsigned int head_one_bits = 0;
     while (head_one_bits < 8) {
         if ((mbchar[0] >> (7 - head_one_bits) & 0x01) == 1)
             head_one_bits++;
@@ -268,8 +269,8 @@ int mbchar_size(mbchar mbchar, int len) {
  * uses only head_one_bits
  * return size of multi byte char
  */
-int safed_mbchar_size(mbchar mbchar) {
-    int head_one_bits = 0;
+unsigned int safed_mbchar_size(mbchar mbchar) {
+    unsigned int head_one_bits = 0;
     while (head_one_bits < 8) {
         if ((mbchar[0] >> (7 - head_one_bits) & 0x01) == 1)
             head_one_bits++;
@@ -295,7 +296,7 @@ int isLineBreak(mbchar mbchar) {
  * mbchar_width
  * return char display width(multi is const 2)
  */
-int mbchar_width(mbchar mbchar) {
+unsigned int mbchar_width(mbchar mbchar) {
     if (safed_mbchar_size(mbchar) > 1)
         return 2;
     else
@@ -306,10 +307,10 @@ int mbchar_width(mbchar mbchar) {
  * string_width
  * return string display width
  */
-int string_width(unsigned char *message) {
-    int width = 0;
+unum string_width(unsigned char *message) {
+    unsigned int width = 0;
     long max_byte = strlen((char *)message);
-    int i = 0;
+    unsigned int i = 0;
     while(i < max_byte) {
         width += mbchar_width(&message[i]);
         i += safed_mbchar_size(&message[i]);
@@ -356,7 +357,7 @@ struct text *file_read(const char *filename) {
 	mbchar buf = mbchar_malloc();
     unsigned char c;
     mbcher_zero_clear(buf);
-    int len = 0;
+    unsigned int len = 0;
     int mbsize;
     while (1) {
         c = (unsigned char)fgetc(fp);
@@ -426,9 +427,9 @@ void render(struct context context) {
  * print_one_mbchar
  * output one mbchar
  */
-int print_one_mbchar(unsigned char *str) {
-    int bytes = safed_mbchar_size(str);
-    for (int i = 0; i < bytes; i++) {
+unsigned int print_one_mbchar(unsigned char *str) {
+    unsigned int bytes = safed_mbchar_size(str);
+    for (unsigned int i = 0; i < bytes; i++) {
         printf("%c", str[i]);
     }
     return bytes;
@@ -438,16 +439,16 @@ int print_one_mbchar(unsigned char *str) {
  * trim_print
  * add space to tail
  */
-void trim_print(unsigned char *message, int max_width) {
-    int messsage_width = string_width(message);
+void trim_print(unsigned char *message, unsigned int max_width) {
+    unum messsage_width = string_width(message);
     if (messsage_width <= max_width) {
         printf("%s",message);
-        int i = max_width - messsage_width;
+        unum i = max_width - messsage_width;
         while(i-- > 0)
             printf(" ");
     } else {
-        int wrote_bytes = 0;
-        int wrote_width = 0;
+        unum wrote_bytes = 0;
+        unum wrote_width = 0;
         while (max_width - wrote_width - mbchar_width(&message[wrote_bytes]) > 2) {
             wrote_width += mbchar_width(&message[wrote_bytes]);
             wrote_bytes += print_one_mbchar(&message[wrote_bytes]);
@@ -460,13 +461,13 @@ void debug_print_text(struct context context) {
     struct text *current_text = context.text;
 	struct line *current_line = context.text->line;
     
-    int i;
+    unum i;
     while (current_text) {
         current_line = current_text->line;
-        printf("#%d# ", current_text->height);
+        printf("#%llu# ", current_text->height);
         while (current_line) {
             i = 0;
-            printf("[%d]",current_line->byte_count);
+            printf("[%llu]",current_line->byte_count);
             while (i < current_line->byte_count) {
                 printf("%c", current_line->string[i]);
                 i++;
