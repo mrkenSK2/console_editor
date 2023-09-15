@@ -14,6 +14,8 @@
 typedef unsigned char* mbchar;
 typedef unsigned long long unum;
 
+enum CommandType {NONE, UP, DOWN, LEFT, RIGHT, EXIT};
+
 /* divided by \n, single link */
 struct line {
     unum byte_count;
@@ -53,6 +55,11 @@ struct context_header {
     unsigned char *message;
 };
 
+struct command {
+    enum CommandType command_key;
+    mbchar command_value;
+};
+
 /* prototype declaration */
 void clear(void);
 struct line *line_insert(struct line *current);
@@ -72,6 +79,7 @@ struct text *file_read(const char *filename);
 void context_read_file(struct context *context, char *filename);
 unsigned char get_single_byte_key(void);
 mbchar keyboard_scan(mbchar *out);
+struct command command_parse(mbchar key);
 void render_header(struct context_header context);
 void render(struct context context);
 unsigned int print_one_mbchar(unsigned char *str);
@@ -451,6 +459,25 @@ mbchar keyboard_scan(mbchar *out) {
         }
     }
     return *out;
+}
+
+struct command command_parse(mbchar key) {
+    struct command cmd;
+    cmd.command_key = NONE;
+    cmd.command_value = key;
+    
+    if (!strcmp((const char*)key, "u"))
+        cmd.command_key = UP;
+    if (!strcmp((const char*)key, "d"))
+        cmd.command_key = DOWN;
+    if (!strcmp((const char*)key, "r"))
+        cmd.command_key = RIGHT;
+    if (!strcmp((const char*)key, "l"))
+        cmd.command_key = LEFT;
+    if (!strcmp((const char*)key, "e"))
+        cmd.command_key = EXIT;
+        
+    return cmd;
 }
 
 /*
