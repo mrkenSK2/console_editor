@@ -14,7 +14,7 @@
 typedef unsigned char* mbchar;
 typedef unsigned long long unum;
 
-enum CommandType {NONE, UP, DOWN, LEFT, RIGHT, EXIT};
+enum CommandType {NONE, INSERT, UP, DOWN, LEFT, RIGHT, EXIT};
 
 /* divided by \n, single link */
 struct line {
@@ -485,6 +485,7 @@ mbchar keyboard_scan(mbchar *out) {
 struct command command_parse(mbchar key) {
     struct command cmd;
     cmd.command_key = NONE;
+    cmd.command_key = INSERT;
     cmd.command_value = key;
 
     char up[3]    = {0x1B,0x5B,0x41};
@@ -526,6 +527,8 @@ void command_perform(struct command command, struct context *context) {
         break;
     case EXIT:
         exit(EXIT_SUCCESS);
+        break;
+    case INSERT:
         break;
     case NONE:
         break;
