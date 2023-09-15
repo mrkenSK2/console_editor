@@ -57,6 +57,8 @@ mbchar mbcher_zero_clear(mbchar mbchar);
 int mbchar_size(mbchar mbchar, int len);
 int safed_mbchar_size(mbchar mbchar);
 int isLineBreak(mbchar mbchar);
+int mbchar_width(mbchar mbchar) ;
+int string_width(char* message) ;
 struct text *file_read(char *filename);
 void context_read_file(struct context *context, char *filename);
 void render_header(struct context_header context);
@@ -163,7 +165,8 @@ mbchar mbchar_malloc(void) {
  * free multi byte
  */
 void mbchar_free(mbchar mbchar) {
-    return free(mbchar);
+    free(mbchar);
+    mbchar = NULL;
 }
 
 /*
@@ -249,13 +252,39 @@ int safed_mbchar_size(mbchar mbchar) {
 }
 
 /*
- * is_LineBreak
+ * isLineBreak
  * return 1 if char is \n
  */
 int isLineBreak(mbchar mbchar) {
     if (mbchar[0] == '\n')
         return 1;
     return 0;
+}
+
+/*
+ * mbchar_width
+ * return char display width(multi is const 2)
+ */
+int mbchar_width(mbchar mbchar) {
+    if (safed_mbchar_size(mbchar) > 1)
+        return 2;
+    else
+        return 1;
+}
+
+/*
+ * string_width
+ * return string display width
+ */
+int string_width(char *message) {
+    int width = 0;
+    long max_byte = strlen(message);
+    int i = 0;
+    while(i < max_byte) {
+        width += mbchar_width(&message[i]);
+        i += safed_mbchar_size(&message[i]);
+    }
+    return width;
 }
 
 /*
