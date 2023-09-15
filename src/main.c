@@ -11,12 +11,12 @@
 #define MBCHAR_NOT_FILL -1
 #define MBCHAR_ILLIEGAL -2
 
-typedef char* mbchar;
+typedef unsigned char* mbchar;
 
 /* divided by \n, single link */
 struct line {
     int byte_count;
-    char string[BUFFER_SIZE];
+    unsigned char string[BUFFER_SIZE];
     struct line *next;
 };
 
@@ -43,7 +43,7 @@ struct view_size {
 struct context_header {
     struct view_size view_size;
     // maybe filename
-    char *message;
+    unsigned char *message;
 };
 
 /* prototype declaration */
@@ -60,13 +60,13 @@ int mbchar_size(mbchar mbchar, int len);
 int safed_mbchar_size(mbchar mbchar);
 int isLineBreak(mbchar mbchar);
 int mbchar_width(mbchar mbchar) ;
-int string_width(char* message) ;
-struct text *file_read(char *filename);
+int string_width(unsigned char *message) ;
+struct text *file_read(const char *filename);
 void context_read_file(struct context *context, char *filename);
 void render_header(struct context_header context);
 void render(struct context context);
-int print_one_mbchar(char *str);
-void trim_print(char *message, int max_width);
+int print_one_mbchar(unsigned char *str);
+void trim_print(unsigned char *message, int max_width);
 void debug_print_text(struct context context);
 struct view_size console_size(void);
 void backcolor_white(int bool);
@@ -187,7 +187,7 @@ void calculatotion_height(struct text *head, int max_width) {
  * return memory
  */
 mbchar mbchar_malloc(void) {
-    return (mbchar)malloc(sizeof(char) * UTF8_MAX_BYTE);
+    return (mbchar)malloc(sizeof(unsigned char) * UTF8_MAX_BYTE);
 }
 
 /*
@@ -306,9 +306,9 @@ int mbchar_width(mbchar mbchar) {
  * string_width
  * return string display width
  */
-int string_width(char *message) {
+int string_width(unsigned char *message) {
     int width = 0;
-    long max_byte = strlen(message);
+    long max_byte = strlen((char *)message);
     int i = 0;
     while(i < max_byte) {
         width += mbchar_width(&message[i]);
@@ -341,7 +341,7 @@ struct view_size console_size(void) {
  * file_read
  * read filename to struct string
  */
-struct text *file_read(char *filename) {
+struct text *file_read(const char *filename) {
 	FILE* fp;
 	
 	if ((fp = fopen(filename, "r")) == NULL) {
@@ -354,12 +354,12 @@ struct text *file_read(char *filename) {
     struct line *current_line = head->line;
 
 	mbchar buf = mbchar_malloc();
-    char c;
+    unsigned char c;
     mbcher_zero_clear(buf);
     int len = 0;
     int mbsize;
     while (1) {
-        c = (char)fgetc(fp);
+        c = (unsigned char)fgetc(fp);
         if (feof(fp))
             break;
         buf[len] = c;
@@ -413,7 +413,7 @@ void render_header(struct context_header context) {
 void render(struct context context) {
     struct view_size view_size = console_size();
     struct context_header context_header;
-    context_header.message = context.filename;
+    context_header.message = (unsigned char *)context.filename;
     context_header.view_size = view_size;
     
     clear();
@@ -426,7 +426,7 @@ void render(struct context context) {
  * print_one_mbchar
  * output one mbchar
  */
-int print_one_mbchar(char *str) {
+int print_one_mbchar(unsigned char *str) {
     int bytes = safed_mbchar_size(str);
     for (int i = 0; i < bytes; i++) {
         printf("%c", str[i]);
@@ -438,7 +438,7 @@ int print_one_mbchar(char *str) {
  * trim_print
  * add space to tail
  */
-void trim_print(char *message, int max_width) {
+void trim_print(unsigned char *message, int max_width) {
     int messsage_width = string_width(message);
     if (messsage_width <= max_width) {
         printf("%s",message);
