@@ -6,6 +6,10 @@
 #include <sys/ioctl.h>
 
 #define BUFFER_SIZE 10
+#define UTF8_MAX_BYTE 6
+#define MBCHAR_NULL 0
+#define MBCHAR_NOT_FILL -1
+#define MBCHAR_ILLIEGAL -2
 
 typedef char* mbchar;
 
@@ -50,7 +54,8 @@ struct text *text_malloc(void);
 mbchar mbchar_malloc(void);
 void mbchar_free(mbchar mbchar);
 mbchar mbcher_zero_clear(mbchar mbchar);
-int mbchar_size(mbchar mbchar);
+int mbchar_size(mbchar mbchar, int len);
+int safe_mbchar_size(mbchar mbchar);
 int isLineBreak(mbchar mbchar);
 struct text *file_read(char *filename);
 void context_read_file(struct context *context, char *filename);
@@ -92,15 +97,15 @@ struct line *line_insert(struct line *current) {
 void line_add_char(struct line *head, mbchar mc) {
     struct line *current = head;
     // rest is none
-    while (current->byte_count >= BUFFER_SIZE - mbchar_size(mc)) {
+    while (current->byte_count >= BUFFER_SIZE - safe_mbchar_size(mc)) {
         if (current->next)
 			current = current->next;
 		else
             current = line_insert(current);
     }
     int offset = 0;
-    while (offset < mbchar_size(mc)) {
-        current->string[current->byte_count + offset] = mc[offset];
+    while (offset < safe_mbchar_size(mc)) {
+        current->string[current->byte_count] = mc[offset];
         current->byte_count++;
         offset++;
     }
@@ -150,7 +155,7 @@ struct text *text_malloc(void) {
  * return memory
  */
 mbchar mbchar_malloc(void) {
-    return (mbchar)malloc(sizeof(char) * MB_CUR_MAX);
+    return (mbchar)malloc(sizeof(char) * UTF8_MAX_BYTE);
 }
 
 /*
@@ -166,7 +171,7 @@ void mbchar_free(mbchar mbchar) {
  * fill mbchar with \0
  */
 mbchar mbcher_zero_clear(mbchar mbchar) {
-    int i = MB_CUR_MAX;
+    int i = UTF8_MAX_BYTE;
     while(i--)
         mbchar[i] = '\0';
     return mbchar;
@@ -176,8 +181,71 @@ mbchar mbcher_zero_clear(mbchar mbchar) {
  * mbchar_size
  * return size of multi byte char
  */
-int mbchar_size(mbchar mbchar) {
-    return mblen(mbchar, MB_CUR_MAX);
+int mbchar_size(mbchar mbchar, int len) {
+    if (len < 1 || UTF8_MAX_BYTE < len)
+        return MBCHAR_ILLIEGAL;
+    if (len == 1 && mbchar[0] == 0x00)
+        return MBCHAR_NULL;
+    // length of mbchar is determined by number of head 1 in byte
+    int head_one_bits = 0;
+    while (head_one_bits < 8) {
+        if ((mbchar[0] >> (7 - head_one_bits) & 0x01) == 1)
+            head_one_bits++;
+        else
+            break;
+    }
+    if (head_one_bits == 0)
+        // if head 1 bit is 0, that is 1 byte char
+        // for compare to len
+        head_one_bits++;
+    if (head_one_bits > len)
+        return MBCHAR_NOT_FILL;
+    if (head_one_bits == len) {
+        switch(len) {
+        case 1:
+            return len;
+            break;
+        case 2:
+            if (mbchar[0] & 0x1e)
+                return len;
+            break;
+        case 3:
+            if (mbchar[0] & 0x0f || mbchar[1] & 0x20)
+                return len;
+            break;
+        case 4:
+            if (mbchar[0] & 0x07 || mbchar[1] & 0x30)
+                return len;
+            break;
+        case 5:
+            if (mbchar[0] & 0x03 || mbchar[1] & 0x38)
+                return len;
+            break;
+        case 6:
+            if (mbchar[0] & 0x01 || mbchar[1] & 0x3c)
+                return len;
+            break;
+        }
+    }
+    return MBCHAR_ILLIEGAL;
+}
+
+/*
+ * safe_mbchar_size
+ * uses only head_one_bits
+ * return size of multi byte char
+ */
+int safe_mbchar_size(mbchar mbchar) {
+    int head_one_bits = 0;
+    while (head_one_bits < 8) {
+        if ((mbchar[0] >> (7 - head_one_bits) & 0x01) == 1)
+            head_one_bits++;
+        else
+            break;
+    }
+    if (head_one_bits == 0)
+        head_one_bits++;
+    return head_one_bits;
 }
 
 /*
@@ -230,12 +298,14 @@ struct text *file_read(char *filename) {
     char c;
     mbcher_zero_clear(buf);
     int len = 0;
-    while(1) {
+    int mbsize;
+    while (1) {
         c = (char)fgetc(fp);
         if (feof(fp))
             break;
         buf[len] = c;
-        if (mbchar_size(buf) > 0) {
+        mbsize = mbchar_size(buf, len + 1);
+        if (mbsize > 0) {
             line_add_char(current_line, buf);
             if (isLineBreak(buf)) {
                 current_text = text_insert(current_text);
@@ -243,10 +313,12 @@ struct text *file_read(char *filename) {
             }
             mbcher_zero_clear(buf);
             len = 0;
-        } else if (mbchar_size(buf) <= 0) {
+        } else if (mbsize == MBCHAR_NOT_FILL) {
             // not valid
             len++;
-        }
+        } else {
+			mbcher_zero_clear(buf);
+		}
     }
     mbchar_free(buf);
     fclose(fp);
