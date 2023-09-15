@@ -18,14 +18,15 @@ enum CommandType {NONE, INSERT, UP, DOWN, LEFT, RIGHT, EXIT};
 
 /* divided by \n, single link */
 struct line {
-    unum byte_count;
+    unsigned int byte_count;
+    unsigned int position_count;
     unsigned char string[BUFFER_SIZE];
     struct line *next;
 };
 
 /* list of line, double link */
 struct text {
-    unum height;
+    unum width_count;
 	struct line *line;
     struct text *prev;
     struct text *next;
@@ -67,6 +68,7 @@ void line_add_char(struct line *head, mbchar mc);
 struct text *text_insert(struct text *current);
 struct text *text_malloc(void);
 struct line *getLineHeadFromPositionY(struct text *head, unum position_y);
+struct line *getLineAndByteFromPositionX(struct line *head, unum position_x, unsigned int *byte);
 void calculatotion_height(struct text *head, unsigned int max_width);
 mbchar mbchar_malloc(void);
 void mbchar_free(mbchar mbchar);
@@ -201,6 +203,26 @@ struct line *getLineHeadFromPositionY(struct text *head, unum position_y) {
 }
 
 /*
+ * getLineAndByteFromPositionX
+ * head maybe start
+ */
+struct line *getLineAndByteFromPositionX(struct line *head, unum position_x, unsigned int *byte) {
+	unum i = position_x;
+	struct line *current_line = head;
+    while (current_line && i > current_line->position_count) {
+        i -= current_line->position_count;
+        current_line = current_line->next;
+    }
+    if (current_line) {
+        *byte = 0;
+        while (i--)
+            *byte += safed_mbchar_size(&current_line->string[*byte]);
+        return current_line;
+    }
+    return NULL;
+}
+
+/*
  * calculatotion_height
  * calc view height
  * total_width is per line
@@ -219,14 +241,18 @@ void calculatotion_height(struct text *head, unsigned int max_width) {
         unum total_width = 0;
         current_line = current_text->line;
         while (current_line) {
+            int line_position = 0;
             i = 0;
             while (i < current_line->byte_count) {
-                total_width += mbchar_width(&current_line->string[i]);
+                int w = mbchar_width(&current_line->string[i]);
+                total_width += w;
+                line_position++;
                 i += safed_mbchar_size(&current_line->string[i]);
             }
+            current_line->position_count = line_position;
             current_line = current_line->next;
         }
-        current_text->height = total_width / max_width + 1;
+        current_text->width_count = total_width;
         current_text = current_text->next;
     }
 }
@@ -535,10 +561,10 @@ void command_perform(struct command command, struct context *context) {
         context->cursor.position_y += 1;
         break;
     case RIGHT:
-        context->cursor.position_x -= 1;
+        context->cursor.position_x += 1;
         break;
     case LEFT:
-        context->cursor.position_x += 1;
+        context->cursor.position_x -= 1;
         break;
     case EXIT:
         exit(EXIT_SUCCESS);
@@ -546,6 +572,11 @@ void command_perform(struct command command, struct context *context) {
     case INSERT:
         context->filename = (char*)(command.command_value);
         context->filename = (char*)(getLineHeadFromPositionY(context->text, context->cursor.position_y)->string);
+        struct line *head = getLineHeadFromPositionY(context->text, context->cursor.position_y);
+        context->filename = (char*)(head->string); // TODO
+        unsigned int byte;
+        struct line *line = getLineAndByteFromPositionX(head, context->cursor.position_x, &byte);
+        context->filename = (char*)&line->string[byte];
         break;
     case NONE:
         break;
@@ -658,10 +689,10 @@ void debug_print_text(struct context context) {
     unum i;
     while (current_text) {
         current_line = current_text->line;
-        printf("#%llu# ", current_text->height);
+        printf("#%llu# ", current_text->width_count);
         while (current_line) {
             i = 0;
-            printf("[%llu]",current_line->byte_count);
+            printf("[%dp, %dp]",current_line->byte_count, current_line->position_count);
             while (i < current_line->byte_count) {
                 printf("%c", current_line->string[i]);
                 i++;
@@ -672,7 +703,7 @@ void debug_print_text(struct context context) {
         }
         current_text = current_text->next;
         if (current_text)
-            printf("-------\n");
+            printf("\n-------\n");
     }
     printf("\n");
 }
