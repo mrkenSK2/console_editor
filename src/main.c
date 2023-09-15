@@ -69,7 +69,7 @@ struct text *text_insert(struct text *current);
 struct text *text_malloc(void);
 struct line *getLineHeadFromPositionY(struct text *head, unum position_y);
 struct line *getLineAndByteFromPositionX(struct line *head, unum position_x, unsigned int *byte);
-void calculatotion_height(struct text *head, unsigned int max_width);
+void calculation_width(struct text *head, unsigned int max_width);
 mbchar mbchar_malloc(void);
 void mbchar_free(mbchar mbchar);
 mbchar mbcher_zero_clear(mbchar mbchar);
@@ -223,11 +223,11 @@ struct line *getLineAndByteFromPositionX(struct line *head, unum position_x, uns
 }
 
 /*
- * calculatotion_height
+ * calculation_width
  * calc view height
  * total_width is per line
  */
-void calculatotion_height(struct text *head, unsigned int max_width) {
+void calculation_width(struct text *head, unsigned int max_width) {
     static unsigned int prev_width = 0;
     if (prev_width == max_width)
         // cache
@@ -606,9 +606,11 @@ void render(struct context context) {
     context_header.view_size = view_size;
     
     clear();
-    calculatotion_height(context.text, view_size.width);
+    calculation_width(context.text, view_size.width);
     render_header(context_header);
     render_body(context);
+    printf("\n---debug---\n");
+    debug_print_text(context);
 }
 
 /*
