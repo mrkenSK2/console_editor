@@ -70,6 +70,8 @@ unsigned int mbchar_width(mbchar mbchar) ;
 unum string_width(unsigned char *message) ;
 struct text *file_read(const char *filename);
 void context_read_file(struct context *context, char *filename);
+unsigned char get_single_byte_key(void);
+mbchar keyboard_scan(mbchar *out);
 void render_header(struct context_header context);
 void render(struct context context);
 unsigned int print_one_mbchar(unsigned char *str);
@@ -87,7 +89,13 @@ int main(int argc, char *argv[]) {
         context_read_file(&context, argv[1]);
         context.cursor.position_x = 0;
         context.cursor.position_y = 0;
-        render(context);
+        mbchar key = mbchar_malloc();
+        while (1) {
+            printf("%s", key);
+            keyboard_scan(&key);
+            // render(context);
+        }
+        mbchar_free(key);
         exit(EXIT_SUCCESS);
     }
 }
@@ -406,6 +414,43 @@ void context_read_file(struct context *context, char *filename) {
     context->filename = (char *)malloc(sizeof(filename));
     strcpy(context->filename, filename);
     context->text = file_read(context->filename);
+}
+
+/*
+ * get_single_byte_key
+ * if is_init, make non_canon, read and put back
+ */
+unsigned char get_single_byte_key(void) {
+    static int is_init = 0;
+    static struct termios term_org;
+    static struct termios non_canon;
+    if (!is_init) {
+        tcgetattr(STDIN_FILENO, &term_org);
+        non_canon = term_org;
+        cfmakeraw(&non_canon);
+    }
+    unsigned char key;
+    tcsetattr(STDIN_FILENO, 0, &non_canon);
+    key = getchar();
+    tcsetattr(STDIN_FILENO, 0, &term_org);
+    return key;
+}
+
+/*
+ * key_board_scan
+ * store scan to arg out
+ */
+mbchar keyboard_scan(mbchar *out) {
+    mbcher_zero_clear(*out);
+    unsigned int i = 0;
+    while (mbchar_size(*out, i) < 0) {
+        *out[i] = get_single_byte_key();
+        i++;
+        if (mbchar_size(*out, i) == MBCHAR_ILLIEGAL) {
+            mbcher_zero_clear(*out);
+        }
+    }
+    return *out;
 }
 
 /*
