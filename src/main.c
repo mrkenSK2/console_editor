@@ -69,6 +69,8 @@ struct text *text_insert(struct text *current);
 struct text *text_malloc(void);
 struct line *getLineHeadFromPositionY(struct text *head, unum position_y);
 struct line *getLineAndByteFromPositionX(struct line *head, unum position_x, unsigned int *byte);
+mbchar get_tail(struct line *line);
+void insert_mbchar(struct line *line, unsigned int byte, mbchar c);
 void calculation_width(struct text *head, unsigned int max_width);
 mbchar mbchar_malloc(void);
 void mbchar_free(mbchar mbchar);
@@ -210,16 +212,59 @@ struct line *getLineAndByteFromPositionX(struct line *head, unum position_x, uns
 	unum i = position_x;
 	struct line *current_line = head;
     while (current_line && i > current_line->position_count) {
+        // before update
         i -= current_line->position_count;
         current_line = current_line->next;
     }
     if (current_line) {
         *byte = 0;
-        while (i--)
+        while (i-- > 1)
             *byte += safed_mbchar_size(&current_line->string[*byte]);
         return current_line;
     }
     return NULL;
+}
+
+/*
+ * get_tail
+ * return last str
+ */
+mbchar get_tail(struct line *line) {
+    unsigned int i = 0;
+    // > so stop at tail pos 
+    while (line->byte_count > i + safed_mbchar_size(&line->string[i]))
+        i += safed_mbchar_size(&line->string[i]);
+    return &line->string[i];
+}
+
+/*
+ * insert_mbchar
+ * insert arg byte size char c
+ */
+void insert_mbchar(struct line *line, unsigned int byte, mbchar c) {
+    unsigned int s = safed_mbchar_size(c);
+    // exist next and both line don't have mbchar area 
+    if (line->byte_count + UTF8_MAX_BYTE >= BUFFER_SIZE && line->next && line->next->byte_count + UTF8_MAX_BYTE >= BUFFER_SIZE)
+        line_insert(line);
+    // shortage of buf
+    while (BUFFER_SIZE <= line->byte_count + s) {
+        mbchar tail = get_tail(line);
+        line->byte_count -= safed_mbchar_size(tail);
+        insert_mbchar(line->next, 0, tail);
+    }
+    unsigned int move = line->byte_count;
+    // slide char
+    while (move > byte) {
+        move--;
+        line->string[move + s] = line->string[move];
+    }
+    
+    unsigned int offset = 0;
+    while (offset < s) {
+        line->string[byte + offset] = c[offset];
+        line->byte_count++;
+        offset++;
+    }
 }
 
 /*
@@ -229,9 +274,6 @@ struct line *getLineAndByteFromPositionX(struct line *head, unum position_x, uns
  */
 void calculation_width(struct text *head, unsigned int max_width) {
     static unsigned int prev_width = 0;
-    if (prev_width == max_width)
-        // cache
-        return;
     prev_width = max_width;
 	struct text *current_text = head;
 	struct line *current_line = head->line;
@@ -570,13 +612,12 @@ void command_perform(struct command command, struct context *context) {
         exit(EXIT_SUCCESS);
         break;
     case INSERT:
-        context->filename = (char*)(command.command_value);
-        context->filename = (char*)(getLineHeadFromPositionY(context->text, context->cursor.position_y)->string);
-        struct line *head = getLineHeadFromPositionY(context->text, context->cursor.position_y);
-        context->filename = (char*)(head->string); // TODO
+        {
         unsigned int byte;
+        struct line *head = getLineHeadFromPositionY(context->text, context->cursor.position_y);
         struct line *line = getLineAndByteFromPositionX(head, context->cursor.position_x, &byte);
-        context->filename = (char*)&line->string[byte];
+        insert_mbchar(line, byte, command.command_value);
+        }
         break;
     case NONE:
         break;
@@ -609,7 +650,6 @@ void render(struct context context) {
     calculation_width(context.text, view_size.width);
     render_header(context_header);
     render_body(context);
-    printf("\n---debug---\n");
     debug_print_text(context);
 }
 
@@ -685,13 +725,14 @@ void trim_print(unsigned char *message, unsigned int max_width) {
 }
 
 void debug_print_text(struct context context) {
+    printf("\n---debug---\n");
     struct text *current_text = context.text;
 	struct line *current_line = context.text->line;
     
     unum i;
     while (current_text) {
         current_line = current_text->line;
-        printf("#%llu# ", current_text->width_count);
+        printf("#%lluw ", current_text->width_count);
         while (current_line) {
             i = 0;
             printf("[%dp, %dp]",current_line->byte_count, current_line->position_count);
