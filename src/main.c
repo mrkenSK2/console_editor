@@ -39,12 +39,6 @@ struct cursor {
     unum position_y;
 };
 
-struct context {
-	char *filename;
-	struct text *text;
-    struct cursor cursor;
-};
-
 /* panel size */
 struct view_size {
     unsigned int width;
@@ -58,6 +52,13 @@ struct context_header {
     unsigned char *message;
 };
 
+struct context {
+	char *filename;
+	struct text *text;
+    struct cursor cursor;
+    struct view_size view_size;
+};
+
 struct command {
     enum CommandType command_key;
     mbchar command_value;
@@ -69,6 +70,8 @@ struct line *line_insert(struct line *current);
 void line_add_char(struct line *head, mbchar mc);
 struct text *text_insert(struct text *current);
 struct text *text_malloc(void);
+void text_free(struct text* text);
+void text_combine_next(struct text* current);
 struct text *getTextFromPositionY(struct text *head, unum position_y);
 struct line *getLineAndByteFromPositionX(struct line *head, unum position_x, unsigned int *byte);
 mbchar get_tail(struct line *line);
@@ -192,6 +195,31 @@ struct text *text_malloc(void) {
     head->line->next = NULL;
     head->line->byte_count = 0;
     return head;
+}
+
+/*
+ * text_free
+ * free text and joint around
+ */
+void text_free(struct text* text) {
+    struct text *prev = text->prev;
+    struct text *next = text->next;
+    prev->next = next;
+    next->prev = prev;
+    free(text);
+}
+
+/*
+ * text_combine_next
+ * combine beyond line
+ */
+void text_combine_next(struct text* current) {
+    struct line *tail = current->line;
+    while (tail->next)
+        tail = tail->next;
+    delete_mbchar(tail, tail->byte_count - safed_mbchar_size(get_tail(tail)));
+    tail->next = current->next->line;
+    text_free(current->next);
 }
 
 /*
@@ -667,21 +695,25 @@ void command_perform(struct command command, struct context *context) {
         break;
     case DELETE:
         {
-        unsigned int byte;
-        struct text *head = getTextFromPositionY(context->text, context->cursor.position_y);
-        struct line *line;
-        // cursor is not head of line
-        if (context->cursor.position_x)
-            line = getLineAndByteFromPositionX(head->line, context->cursor.position_x - 1, &byte);
-        else
-            line = getLineAndByteFromPositionX(head->line, 0, &byte);
-        delete_mbchar(line, byte);
-        context->cursor.position_x -= 1;
+        if (context->cursor.position_x > 1) {
+            unsigned int byte;
+            struct text *head = getTextFromPositionY(context->text, context->cursor.position_y);
+            struct line *line = getLineAndByteFromPositionX(head->line, context->cursor.position_x - 1, &byte);
+            delete_mbchar(line, byte);
+            context->cursor.position_x -= 1;
+        } else if (context->cursor.position_y > 1) {
+            // pos x is 1 and line is not top
+            struct text *head = getTextFromPositionY(context->text, context->cursor.position_y - 1);
+            text_combine_next(head);
+            context->cursor.position_x = getTextFromPositionY(context->text, context->cursor.position_y - 1)->position_count;
+            context->cursor.position_y -= 1;
         }
-      break;
+        }
+        break;
     case NONE:
         break;
     }
+    calculation_width(context->text, context->view_size.width);
     vailidate_cursor_position(context);
 }
 
@@ -703,12 +735,12 @@ void render_header(struct context_header context) {
  */
 void render(struct context context) {
     struct view_size view_size = console_size();
+    context.view_size = view_size;
     struct context_header context_header;
     context_header.message = (unsigned char *)context.filename;
     context_header.view_size = view_size;
     
     clear();
-    calculation_width(context.text, view_size.width);
     render_header(context_header);
     render_body(context);
     debug_print_text(context);
