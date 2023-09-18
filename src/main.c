@@ -14,7 +14,7 @@
 typedef unsigned char* mbchar;
 typedef unsigned long long unum;
 
-enum CommandType {NONE, INSERT, UP, DOWN, LEFT, RIGHT, EXIT};
+enum CommandType {NONE, INSERT, DELETE, UP, DOWN, LEFT, RIGHT, EXIT};
 enum ControlKeyFlag {NOT_CTRL, ALLOW_1, ALLOW_2};
 
 /* divided by \n, single link */
@@ -73,6 +73,7 @@ struct text *getTextFromPositionY(struct text *head, unum position_y);
 struct line *getLineAndByteFromPositionX(struct line *head, unum position_x, unsigned int *byte);
 mbchar get_tail(struct line *line);
 void insert_mbchar(struct line *line, unsigned int byte, mbchar c);
+void delete_mbchar(struct line *line, unsigned int byte);
 void calculation_width(struct text *head, unsigned int max_width);
 mbchar mbchar_malloc(void);
 void mbchar_free(mbchar mbchar);
@@ -268,6 +269,20 @@ void insert_mbchar(struct line *line, unsigned int byte, mbchar c) {
         line->byte_count++;
         offset++;
     }
+}
+
+/*
+ * delete_mbchar
+ * delete byte pos mbchar
+ */
+void delete_mbchar(struct line *line, unsigned int byte) {
+    unsigned int s = safed_mbchar_size(&line->string[byte]);
+    unsigned int move = byte;
+    while (move < line->byte_count) {
+        line->string[move] = line->string[move + s];
+        move++;
+    }
+    line->byte_count -= s;
 }
 
 /*
@@ -587,12 +602,14 @@ struct command command_parse(mbchar key) {
             cmd.command_key = DOWN;
         else if (key[0] == 0x43)
             cmd.command_key = RIGHT;
-        else if(key[0] == 0x44)
+        else if (key[0] == 0x44)
             cmd.command_key = LEFT;
         flag = NOT_CTRL;
     } else {
         if (key[0] == 0x11)
             cmd.command_key = EXIT;
+        else if (key[0] == 0x7F)
+            cmd.command_key = DELETE;
         else
             cmd.command_key = INSERT;
         flag = NOT_CTRL;
@@ -648,6 +665,20 @@ void command_perform(struct command command, struct context *context) {
         context->cursor.position_x += 1;
         }
         break;
+    case DELETE:
+        {
+        unsigned int byte;
+        struct text *head = getTextFromPositionY(context->text, context->cursor.position_y);
+        struct line *line;
+        // cursor is not head of line
+        if (context->cursor.position_x)
+            line = getLineAndByteFromPositionX(head->line, context->cursor.position_x - 1, &byte);
+        else
+            line = getLineAndByteFromPositionX(head->line, 0, &byte);
+        delete_mbchar(line, byte);
+        context->cursor.position_x -= 1;
+        }
+      break;
     case NONE:
         break;
     }
