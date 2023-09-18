@@ -14,7 +14,7 @@
 typedef unsigned char* mbchar;
 typedef unsigned long long unum;
 
-enum CommandType {NONE, INSERT, DELETE, ENTER, UP, DOWN, LEFT, RIGHT, EXIT};
+enum CommandType {NONE, INSERT, DELETE, ENTER, UP, DOWN, LEFT, RIGHT, SAVE_OVERRIDE, EXIT};
 enum ControlKeyFlag {NOT_CTRL, ALLOW_1, ALLOW_2};
 
 /* divided by \n, single link */
@@ -89,6 +89,8 @@ unsigned int mbchar_width(mbchar mbchar) ;
 unum string_width(unsigned char *message) ;
 struct text *file_read(const char *filename);
 void context_read_file(struct context *context, char *filename);
+void context_write_override_file(struct context *context);
+void file_write(const char* filepath, struct text *head);
 unsigned char get_single_byte_key(void);
 void color_cursor(int bool);
 mbchar keyboard_scan(mbchar *out);
@@ -574,6 +576,35 @@ struct text *file_read(const char *filename) {
 }
 
 /*
+ * file_write
+ * write file from head
+ */
+void file_write(const char* filepath, struct text *head) {
+    FILE *fp;
+    if ((fp = fopen(filepath, "w")) == NULL) {
+        printf("[error]can't open file\n");
+        exit(EXIT_FAILURE);
+    }
+    
+    struct text *current_text = head;
+	struct line *current_line = head->line;
+    unum i;
+    while (current_text) {
+        current_line = current_text->line;
+        while (current_line) {
+            i = 0;
+            while (i < current_line->byte_count) {
+                fputc(current_line->string[i], fp);
+                i++;
+            }
+            current_line = current_line->next;
+        }
+        current_text = current_text->next;
+    }
+	fclose(fp);
+}
+
+/*
  * context_read_file
  * store contents of filename to the members of struct context
  */
@@ -581,6 +612,14 @@ void context_read_file(struct context *context, char *filename) {
     context->filename = (char *)malloc(sizeof(filename));
     strcpy(context->filename, filename);
     context->text = file_read(context->filename);
+}
+
+/*
+ * context_write_override_file
+ * call file_write
+ */
+void context_write_override_file(struct context *context) {
+    file_write(context->filename, context->text);
 }
 
 /*
@@ -668,6 +707,8 @@ struct command command_parse(mbchar key) {
             cmd.command_key = INSERT;
             cmd.command_value=(mbchar)" ";
         }
+        else if (key[0] == 0x13)
+            cmd.command_key = SAVE_OVERRIDE;
         else
             cmd.command_key = INSERT;
         flag = NOT_CTRL;
@@ -749,6 +790,9 @@ void command_perform(struct command command, struct context *context) {
         context->cursor.position_x = 1;
         context->cursor.position_y += 1;
         }
+        break;
+    case SAVE_OVERRIDE:
+        context_write_override_file(context);
         break;
     case NONE:
         break;
