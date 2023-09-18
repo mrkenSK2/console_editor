@@ -84,7 +84,7 @@ void mbchar_free(mbchar mbchar);
 mbchar mbcher_zero_clear(mbchar mbchar);
 int mbchar_size(mbchar mbchar, unsigned int len);
 unsigned int safed_mbchar_size(mbchar mbchar);
-int isLineBreak(mbchar mbchar);
+int is_line_break(mbchar mbchar);
 unsigned int mbchar_width(mbchar mbchar) ;
 unum string_width(unsigned char *message) ;
 struct text *file_read(const char *filename);
@@ -298,7 +298,7 @@ mbchar get_tail(struct line *line) {
 void insert_mbchar(struct line *line, unsigned int byte, mbchar c) {
     unsigned int s = safed_mbchar_size(c);
     // exist next and both line don't have mbchar area 
-    if (line->byte_count + UTF8_MAX_BYTE >= BUFFER_SIZE && line->next && line->next->byte_count + UTF8_MAX_BYTE >= BUFFER_SIZE)
+    if (line->byte_count + UTF8_MAX_BYTE >= BUFFER_SIZE)
         line_insert(line);
     // shortage of buf
     while (BUFFER_SIZE <= line->byte_count + s) {
@@ -471,10 +471,10 @@ unsigned int safed_mbchar_size(mbchar mbchar) {
 }
 
 /*
- * isLineBreak
+ * is_line_break
  * return 1 if char is \n
  */
-int isLineBreak(mbchar mbchar) {
+int is_line_break(mbchar mbchar) {
     if (mbchar[0] == '\n')
         return 1;
     return 0;
@@ -555,7 +555,7 @@ struct text *file_read(const char *filename) {
         mbsize = mbchar_size(buf, len + 1);
         if (mbsize > 0) {
             line_add_char(current_line, buf);
-            if (isLineBreak(buf)) {
+            if (is_line_break(buf)) {
                 current_text = text_insert(current_text);
                 current_line = current_text->line;
             }
@@ -663,6 +663,10 @@ struct command command_parse(mbchar key) {
         else if (key[0] == 0x0D) {
             cmd.command_key = ENTER;
             cmd.command_value = (mbchar)"\n";
+        }
+        else if (key[0] == 0x20) {
+            cmd.command_key = INSERT;
+            cmd.command_value=(mbchar)" ";
         }
         else
             cmd.command_key = INSERT;
@@ -866,7 +870,7 @@ void debug_print_text(struct context context) {
             i = 0;
             printf("[%dp, %dp]",current_line->byte_count, current_line->position_count);
             while (i < current_line->byte_count) {
-                if (isLineBreak(&current_line->string[i]))
+                if (is_line_break(&current_line->string[i]))
                     printf("<BR>");
                 else
                     printf("%c", current_line->string[i]);
