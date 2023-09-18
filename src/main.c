@@ -15,6 +15,7 @@ typedef unsigned char* mbchar;
 typedef unsigned long long unum;
 
 enum CommandType {NONE, INSERT, UP, DOWN, LEFT, RIGHT, EXIT};
+enum ControlKeyFlag {NOT_CTRL, ALLOW_1, ALLOW_2};
 
 /* divided by \n, single link */
 struct line {
@@ -27,6 +28,7 @@ struct line {
 /* list of line, double link */
 struct text {
     unum width_count;
+    unum position_count;
 	struct line *line;
     struct text *prev;
     struct text *next;
@@ -67,7 +69,7 @@ struct line *line_insert(struct line *current);
 void line_add_char(struct line *head, mbchar mc);
 struct text *text_insert(struct text *current);
 struct text *text_malloc(void);
-struct line *getLineHeadFromPositionY(struct text *head, unum position_y);
+struct text *getTextFromPositionY(struct text *head, unum position_y);
 struct line *getLineAndByteFromPositionX(struct line *head, unum position_x, unsigned int *byte);
 mbchar get_tail(struct line *line);
 void insert_mbchar(struct line *line, unsigned int byte, mbchar c);
@@ -86,6 +88,7 @@ unsigned char get_single_byte_key(void);
 void color_cursor(int bool);
 mbchar keyboard_scan(mbchar *out);
 struct command command_parse(mbchar key);
+void vailidate_cursor_position(struct context *context);
 void command_perform(struct command command, struct context *context);
 void render_header(struct context_header context);
 void render(struct context context);
@@ -191,16 +194,16 @@ struct text *text_malloc(void) {
 }
 
 /*
- * getLineHeadFromPositionY
+ * getTextFromPositionY
  * get pos_y of head line
  */
-struct line *getLineHeadFromPositionY(struct text *head, unum position_y) {
+struct text *getTextFromPositionY(struct text *head, unum position_y) {
     unum i = position_y - 1;
     struct text *current_text = head;
     while (i-- > 0 && current_text)
         current_text = current_text->next;
 	if (current_text)
-        return current_text->line;
+        return current_text;
 	return NULL;
 }
 
@@ -281,6 +284,7 @@ void calculation_width(struct text *head, unsigned int max_width) {
     unsigned int i;
     while (current_text) {
         unum total_width = 0;
+        unum total_position = 0;
         current_line = current_text->line;
         while (current_line) {
             int line_position = 0;
@@ -292,9 +296,11 @@ void calculation_width(struct text *head, unsigned int max_width) {
                 i += safed_mbchar_size(&current_line->string[i]);
             }
             current_line->position_count = line_position;
+            total_position += line_position;
             current_line = current_line->next;
         }
         current_text->width_count = total_width;
+        current_text->position_count = total_position;
         current_text = current_text->next;
     }
 }
@@ -566,29 +572,52 @@ mbchar keyboard_scan(mbchar *out) {
  * return kind of arg key
  */
 struct command command_parse(mbchar key) {
+    static enum ControlKeyFlag flag = 0;
     struct command cmd;
     cmd.command_key = NONE;
-    cmd.command_key = INSERT;
+    if (key[0] == 0x1B && flag == NOT_CTRL)
+        flag = ALLOW_1;
+    else if (key[0] == 0x5B && flag == ALLOW_1)
+        flag = ALLOW_2;
+    else if (flag == ALLOW_2) {
+        if (key[0] == 0x41)
+            cmd.command_key = UP;
+        if (key[0] == 0x42)
+            cmd.command_key = DOWN;
+        if (key[0] == 0x43)
+            cmd.command_key = RIGHT;
+        if(key[0] == 0x44)
+            cmd.command_key = LEFT;
+        flag = NOT_CTRL;
+    } else {
+        flag = NOT_CTRL;
+        cmd.command_key = INSERT;
+    }
     cmd.command_value = key;
 
-    char up[3]    = {0x1B,0x5B,0x41};
-    char down[3]  = {0x1B,0x5B,0x42};
-    char right[3] = {0x1B,0x5B,0x43};
-    char left[3]  = {0x1B,0x5B,0x44};
-    
-    if (!strcmp((const char*)key, "u"))
-        cmd.command_key = UP;
-    if (!strcmp((const char*)key, "d"))
-        cmd.command_key = DOWN;
-    if (!strcmp((const char*)key, "r"))
-        cmd.command_key = RIGHT;
-    if (!strcmp((const char*)key, "l"))
-        cmd.command_key = LEFT;
     if (!strcmp((const char*)key, "e"))
         cmd.command_key = EXIT;
         
     return cmd;
 }
+
+/*
+ * vailidate_cursor_position
+ * regulate leftest, rightest
+ */
+void vailidate_cursor_position(struct context *context) {
+    if (context->cursor.position_x < 1)
+        context->cursor.position_x = 1;
+    if (context->cursor.position_y < 1)
+        context->cursor.position_y = 1;
+    while (!getTextFromPositionY(context->text, context->cursor.position_y))
+        context->cursor.position_y -= 1;
+    
+    unum max_x = getTextFromPositionY(context->text, context->cursor.position_y)->position_count - 1;
+    if (context->cursor.position_x > max_x)
+        context->cursor.position_x = max_x;
+}
+
 
 /*
  * command_perform
@@ -614,14 +643,16 @@ void command_perform(struct command command, struct context *context) {
     case INSERT:
         {
         unsigned int byte;
-        struct line *head = getLineHeadFromPositionY(context->text, context->cursor.position_y);
-        struct line *line = getLineAndByteFromPositionX(head, context->cursor.position_x, &byte);
+        struct text *head = getTextFromPositionY(context->text, context->cursor.position_y);
+        struct line *line = getLineAndByteFromPositionX(head->line, context->cursor.position_x, &byte);
         insert_mbchar(line, byte, command.command_value);
+        context->cursor.position_x += 1;
         }
         break;
     case NONE:
         break;
     }
+    vailidate_cursor_position(context);
 }
 
 /*
@@ -732,7 +763,7 @@ void debug_print_text(struct context context) {
     unum i;
     while (current_text) {
         current_line = current_text->line;
-        printf("#%lluw ", current_text->width_count);
+        printf("#%lluw %llup", current_text->width_count, current_text->position_count);
         while (current_line) {
             i = 0;
             printf("[%dp, %dp]",current_line->byte_count, current_line->position_count);
