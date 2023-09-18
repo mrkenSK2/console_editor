@@ -14,7 +14,7 @@
 typedef unsigned char* mbchar;
 typedef unsigned long long unum;
 
-enum CommandType {NONE, INSERT, DELETE, UP, DOWN, LEFT, RIGHT, EXIT};
+enum CommandType {NONE, INSERT, DELETE, ENTER, UP, DOWN, LEFT, RIGHT, EXIT};
 enum ControlKeyFlag {NOT_CTRL, ALLOW_1, ALLOW_2};
 
 /* divided by \n, single link */
@@ -72,6 +72,7 @@ struct text *text_insert(struct text *current);
 struct text *text_malloc(void);
 void text_free(struct text* text);
 void text_combine_next(struct text* current);
+void text_divide(struct text *current_text, struct line *current, unsigned int byte, mbchar divide_char);
 struct text *getTextFromPositionY(struct text *head, unum position_y);
 struct line *getLineAndByteFromPositionX(struct line *head, unum position_x, unsigned int *byte);
 mbchar get_tail(struct line *line);
@@ -113,6 +114,9 @@ int main(int argc, char *argv[]) {
         context.cursor.position_x = 1;
         context.cursor.position_y = 1;
         mbchar key = mbchar_malloc();
+        struct command cmd_none;
+        cmd_none.command_key = NONE;
+        command_perform(cmd_none, &context);
         while (1) {
             render(context);
             keyboard_scan(&key);
@@ -220,6 +224,24 @@ void text_combine_next(struct text* current) {
     delete_mbchar(tail, tail->byte_count - safed_mbchar_size(get_tail(tail)));
     tail->next = current->next->line;
     text_free(current->next);
+}
+
+/*
+ * text_divide
+ * for enter
+ */
+void text_divide(struct text *current_text, struct line *current_line, unsigned int byte, mbchar divide_char) {
+    text_insert(current_text);
+    // next is no contents
+    free(current_text->next->line);
+    current_text->next->line = current_line->next;
+    current_line->next = NULL;
+    while (current_line->byte_count > byte) {
+        mbchar tail = get_tail(current_line);
+        current_line->byte_count -= safed_mbchar_size(tail);
+        insert_mbchar(current_text->next->line, 0, tail);
+    }
+    line_add_char(current_line, divide_char);
 }
 
 /*
@@ -638,6 +660,10 @@ struct command command_parse(mbchar key) {
             cmd.command_key = EXIT;
         else if (key[0] == 0x7F)
             cmd.command_key = DELETE;
+        else if (key[0] == 0x0D) {
+            cmd.command_key = ENTER;
+            cmd.command_value = (mbchar)"\n";
+        }
         else
             cmd.command_key = INSERT;
         flag = NOT_CTRL;
@@ -665,7 +691,7 @@ void vailidate_cursor_position(struct context *context) {
 
 /*
  * command_perform
- * change pos of arg context
+ * change state of arg context
  */
 void command_perform(struct command command, struct context *context) {
     switch (command.command_key) {
@@ -708,6 +734,16 @@ void command_perform(struct command command, struct context *context) {
             context->cursor.position_x = getTextFromPositionY(context->text, context->cursor.position_y - 1)->position_count;
             context->cursor.position_y -= 1;
         }
+        }
+        break;
+    case ENTER:
+        {
+        unsigned int byte;
+        struct text *head = getTextFromPositionY(context->text, context->cursor.position_y);
+        struct line *line = getLineAndByteFromPositionX(head->line, context->cursor.position_x, &byte);
+        text_divide(head, line, byte, command.command_value);
+        context->cursor.position_x = 1;
+        context->cursor.position_y += 1;
         }
         break;
     case NONE:
@@ -830,7 +866,10 @@ void debug_print_text(struct context context) {
             i = 0;
             printf("[%dp, %dp]",current_line->byte_count, current_line->position_count);
             while (i < current_line->byte_count) {
-                printf("%c", current_line->string[i]);
+                if (isLineBreak(&current_line->string[i]))
+                    printf("<BR>");
+                else
+                    printf("%c", current_line->string[i]);
                 i++;
             }
             current_line = current_line->next;
