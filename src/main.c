@@ -52,11 +52,21 @@ struct context_header {
     unsigned char *message;
 };
 
+struct context_footer {
+    struct view_size view_size;
+    unsigned char *message;
+};
+
+// render_start_height for scroll
 struct context {
 	char *filename;
 	struct text *text;
     struct cursor cursor;
     struct view_size view_size;
+    unsigned int header_height;
+    unsigned int body_height;
+    unsigned int footer_height;
+    unsigned int render_start_height;
 };
 
 struct command {
@@ -98,6 +108,9 @@ struct command command_parse(mbchar key);
 void vailidate_cursor_position(struct context *context);
 void command_perform(struct command command, struct context *context);
 void render_header(struct context_header context);
+void render_footer(struct context_footer context);
+void vailidate_render_position(struct context *context);
+void render_setting(struct context *context);
 void render(struct context context);
 void render_body(struct context context);
 unsigned int print_one_mbchar(unsigned char *str);
@@ -115,11 +128,13 @@ int main(int argc, char *argv[]) {
         context_read_file(&context, argv[1]);
         context.cursor.position_x = 1;
         context.cursor.position_y = 1;
+        context.render_start_height = 0;
         mbchar key = mbchar_malloc();
         struct command cmd_none;
         cmd_none.command_key = NONE;
         command_perform(cmd_none, &context);
         while (1) {
+            render_setting(&context);
             render(context);
             keyboard_scan(&key);
             struct command cmd = command_parse(key);
@@ -814,20 +829,55 @@ void render_header(struct context_header context) {
     printf("\n");
 }
 
+void render_footer(struct context_footer context) {
+    backcolor_white(1);
+    printf(" ");
+    trim_print(context.message, context.view_size.width - 2);
+    printf(" ");
+    backcolor_white(0);
+    printf("\n");
+}
+
+/* 
+ * vailidate_render_position
+ * match cursor_position and render_start_height
+ */
+void vailidate_render_position(struct context *context) {
+    while (context->cursor.position_y <= context->render_start_height)
+        context->render_start_height -= 1;
+    while(context->cursor.position_y >= context->render_start_height + context->body_height)
+        context->render_start_height += 1;
+}
+
+/*
+ * render_setting
+ * init context
+ */
+void render_setting(struct context *context) {
+    struct view_size view_size = console_size();
+    context->view_size = view_size;
+    context->header_height = 1;
+    // for header and footer
+    context->body_height = context->view_size.height - 2;
+    context->footer_height = 1;
+    vailidate_render_position(context);
+}
+
 /*
  * output contents of context
  */
 void render(struct context context) {
-    struct view_size view_size = console_size();
-    context.view_size = view_size;
     struct context_header context_header;
     context_header.message = (unsigned char *)context.filename;
-    context_header.view_size = view_size;
-    
+    context_header.view_size = context.view_size;
+    struct context_footer context_footer;
+    context_footer.message = (unsigned char *)context.filename;
+    context_footer.view_size = context.view_size;
     clear();
     render_header(context_header);
     render_body(context);
-    debug_print_text(context);
+    render_footer(context_footer);
+    //debug_print_text(context);
 }
 
 /*
@@ -835,6 +885,8 @@ void render(struct context context) {
  * output with color cursor
  */
 void render_body(struct context context) {
+    int height = context.body_height;
+    int render_max_height = context.render_start_height + height;
     struct text *current_text = context.text;
     struct line *current_line = context.text->line;
     
@@ -847,24 +899,32 @@ void render_body(struct context context) {
         while (current_line) {
             wrote_byte = 0;
             while (wrote_byte < current_line->byte_count) {
-                if (cursor_color_flag) {
-                    color_cursor(0);
-                    cursor_color_flag = 0;
+                if (render_max_height > pos_y && pos_y > context.render_start_height) {
+                    if (cursor_color_flag) {
+                        color_cursor(0);
+                        cursor_color_flag = 0;
+                    }
+                    if (context.cursor.position_x == pos_x && context.cursor.position_y == pos_y) {
+                        color_cursor(1);
+                        cursor_color_flag = 1;
+                    }
+                    wrote_byte += print_one_mbchar(&(current_line->string[wrote_byte]));
+                    pos_x++;
+                } else {
+                    wrote_byte++;
                 }
-                if (context.cursor.position_x == pos_x && context.cursor.position_y == pos_y) {
-                    color_cursor(1);
-                    cursor_color_flag = 1;
-                }
-                wrote_byte += print_one_mbchar(&(current_line->string[wrote_byte]));
-                pos_x++;
             }
             current_line = current_line->next;
         }
         current_text = current_text->next;
         pos_y++;
+        height--;
         pos_x = 1;
     }
-    printf("\n");
+    while(height > 0) {
+        printf("\n");
+        height--;
+    }
 }
 
 /*
