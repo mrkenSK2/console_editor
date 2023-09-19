@@ -871,8 +871,9 @@ void render(struct context context) {
     context_header.message = (unsigned char *)context.filename;
     context_header.view_size = context.view_size;
     struct context_footer context_footer;
-    context_footer.message = (unsigned char *)context.filename;
-    context_footer.view_size = context.view_size;
+    unsigned char pathname[256];
+	getcwd((char *)pathname, 256);
+    context_footer.message = pathname;    context_footer.view_size = context.view_size;
     clear();
     render_header(context_header);
     render_body(context);
@@ -898,6 +899,12 @@ void render_body(struct context context) {
         current_line = current_text->line;
         while (current_line) {
             wrote_byte = 0;
+            // brank line
+            if (current_text->position_count <= 1 && context.cursor.position_y == pos_y) {
+                color_cursor(1);
+                printf(" ");
+                color_cursor(0);
+            }
             while (wrote_byte < current_line->byte_count) {
                 if (render_max_height > pos_y && pos_y > context.render_start_height) {
                     if (cursor_color_flag) {
