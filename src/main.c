@@ -187,16 +187,15 @@ void line_add_char(struct line *head, mbchar mc) {
  */
 struct text *text_insert(struct text *current) {
     struct text *new_text = (struct text *)malloc(sizeof(struct text));
-    if (current->next) {
-        current->next->prev = new_text;
-        new_text->next = current->next;
-    } else {
-        new_text->next = NULL;
-    }
-    if (current) {
+    new_text->prev = current;
+    new_text->next = NULL;
+	if (current) {
+        if (current->next) {
+            current->next->prev = new_text;
+			new_text->next = current->next;
+        }
         current->next = new_text;
     }
-    new_text->prev = current;
     new_text->line = (struct line *)malloc(sizeof(struct line));
     new_text->line->next = NULL;
     new_text->line->byte_count = 0;
@@ -250,9 +249,11 @@ void text_combine_next(struct text* current) {
 void text_divide(struct text *current_text, struct line *current_line, unsigned int byte, mbchar divide_char) {
     text_insert(current_text);
     // next is no contents
-    free(current_text->next->line);
-    current_text->next->line = current_line->next;
-    current_line->next = NULL;
+    if (current_line->next) {
+        free(current_text->next->line);
+        current_text->next->line = current_line->next;
+        current_line->next = NULL;
+    }
     while (current_line->byte_count > byte) {
         mbchar tail = get_tail(current_line);
         current_line->byte_count -= safed_mbchar_size(tail);
